@@ -114,6 +114,9 @@ public class GM_Net : MonoBehaviour, IManager
                             case GC_Net.NetMsgCode.SC_Login_Res:
                                 Debug.Log($"服务器数据 DeviceId：{result.LoginRes.DeviceId} Code：{result.LoginRes.Code}");
                                 break;
+                            case GC_Net.NetMsgCode.CS_Login_Req:
+                                Debug.Log($"服务器数据 DeviceId：{result.LoginReq.Uid} Code：{result.LoginReq.Pwd}");
+                                break;
                             case GC_Net.NetMsgCode.SC_Logout_Res:
                                 Debug.Log($"服务器数据 Code：{result.LogoutRes.Code}");
                                 break;
