@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "Login.proto";
+
+message NetMsg
+{
+	string code = 1;
+	oneof data 
+	{
+		//登录 | 登出
+		CS_Login_Req loginReq = 2;
+		SC_Login_Res loginRes = 3;
+		CS_Logout_Req logoutReq = 4;
+		SC_Logout_Res logoutRes = 5;
+  }
+}

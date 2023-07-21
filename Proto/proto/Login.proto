@@ -1,6 +1,23 @@
 syntax = "proto3";
 
-message User {
+message CS_Login_Req
+{
   int32 uid = 1;
   string pwd = 2;
+}
+
+message SC_Login_Res
+{
+	string code = 1;
+	string deviceId = 2;
+}
+
+message CS_Logout_Req
+{
+	string deviceId = 1;
+}
+
+message SC_Logout_Res
+{
+	string code = 1;
 }
