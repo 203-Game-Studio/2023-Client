@@ -16,7 +16,7 @@ public class TestLogin : MonoBehaviour
         Debug.Log($"{FromProto(data).Uid}-{FromProto(data).Pwd}");
     }
 
-    //·´ĞòÁĞ»¯
+    //ååºåˆ—åŒ–
     User FromProto(byte[] buffer)
     {
         IMessage message = new User();
