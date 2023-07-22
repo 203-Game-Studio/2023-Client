@@ -120,7 +120,7 @@ public class GM_Net : MonoBehaviour, IManager
         private Action Event_SendError;
 
         //接收缓冲大小
-        public const int BUFFER_SIZE = 1024 * 5 * 10;
+        public const int BUFFER_SIZE = 1024 * 5;
 
         //缓冲区
         byte[] rawBuff = new byte[BUFFER_SIZE];
@@ -289,69 +289,66 @@ public class GM_Net : MonoBehaviour, IManager
         //持续接收服务器推送
         private void OnReceiveData(IAsyncResult ar)
         {
-            while (true)
+            try
             {
-                try
+                if (ar == null)
                 {
-                    if (ar == null)
+                    Debug.LogError($"IAsyncResult is null!");
+                }
+
+                NetworkStream steam = ar.AsyncState as NetworkStream;
+                if (steam == null)
+                {
+                    Debug.LogError($"NetworkStream is null!");
+                }
+
+
+                //连接换了 清理数据
+                if (steam != clientStream)
+                {
+                    Debug.LogError($"网络连接已更改");
+                    return;
+                }
+
+                //连接已经失效，则返回
+                if (clientStream == null || client == null || !client.Connected)
+                {
+                    Debug.LogError($"连接已失效");
+                    return;
+                }
+
+                int receiveLen = steam.EndRead(ar);
+
+                byteBuffer.SetPosition(byteBuffer.Length());
+                byteBuffer.Put(rawBuff, receiveLen);
+                byteBuffer.Flip();
+
+                while (byteBuffer.Remaining() > GC_Net.HEAD_LEN)
+                {
+                    int dataLen = byteBuffer.GetInt();
+                    int id = byteBuffer.GetInt();
+                    if (byteBuffer.Remaining() >= dataLen)
                     {
-                        Debug.LogError($"IAsyncResult is null!");
-                    }
-
-                    NetworkStream steam = (NetworkStream)ar.AsyncState;
-                    if (steam == null)
-                    {
-                        Debug.LogError($"NetworkStream is null!");
-                    }
-
-
-                    //连接换了 清理数据
-                    if (steam != clientStream)
-                    {
-                        Debug.LogError($"网络连接已更改");
-                        return;
-                    }
-
-                    //连接已经失效，则返回
-                    if (clientStream == null || client == null || !client.Connected)
-                    {
-                        Debug.LogError($"连接已失效");
-                        return;
-                    }
-
-                    int receiveLen = steam.EndRead(ar);
-
-                    byteBuffer.SetPosition(byteBuffer.Length());
-                    byteBuffer.Put(rawBuff, receiveLen);
-                    byteBuffer.Flip();
-
-                    while (byteBuffer.Remaining() > GC_Net.HEAD_LEN)
-                    {
-                        int dataLen = byteBuffer.GetInt();
-                        int id = byteBuffer.GetInt();
-                        if (byteBuffer.Remaining() >= dataLen)
+                        byte[] data = new byte[dataLen];
+                        byteBuffer.Get(data);
+                        byteBuffer.Compact();
+                        byteBuffer.Flip();
+                        lock (receiveBytesList)
                         {
-                            byte[] data = new byte[dataLen];
-                            byteBuffer.Get(data);
-                            byteBuffer.Compact();
-                            byteBuffer.Flip();
-                            lock (receiveBytesList)
-                            {
-                                receiveBytesList.Enqueue(data);
-                            }
-                        }
-                        else
-                        {
-                            break;
+                            receiveBytesList.Enqueue(data);
                         }
                     }
-                    ReReceive();
+                    else
+                    {
+                        break;
+                    }
                 }
-                catch (Exception e)
-                {
-                    Debug.LogError($"服务器数据异常！ {e.Message}");
-                    Clear();
-                }
+                ReReceive();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"服务器数据异常！ {e.Message}");
+                Clear();
             }
         }
 

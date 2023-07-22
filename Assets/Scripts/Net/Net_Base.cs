@@ -3,7 +3,7 @@ using System;
 
 public abstract class Net_Base
 {
-    // 协议返回成功
+    // 鍗忚杩斿洖鎴愬姛
     public Action<NetMsg> OnSuccess;
 
     public NetMsg MsgResponse { get; private set; }

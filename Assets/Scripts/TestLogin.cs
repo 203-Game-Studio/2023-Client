@@ -8,7 +8,7 @@ public class TestLogin : MonoBehaviour
         var req = Net_Login.Get(123456, "654321");
         req.OnSuccess = (NetMsg msg) =>
         {
-            Debug.Log($"收到服务器登录回复！{msg.Code} {msg.LoginRes.Code}  {msg.LoginRes.DeviceId}");
+            Debug.Log($"鏀跺埌鏈嶅姟鍣ㄧ櫥褰曞洖澶嶏紒{msg.Code} {msg.LoginRes.Code}  {msg.LoginRes.DeviceId}");
         };
         req.Request();
     }
