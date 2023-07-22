@@ -631,7 +631,7 @@ GameObject:
   m_Component:
   - component: {fileID: 429051122}
   m_Layer: 0
-  m_Name: UI
+  m_Name: GM_UI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -663,7 +663,7 @@ GameObject:
   m_Component:
   - component: {fileID: 489615363}
   m_Layer: 0
-  m_Name: Pool
+  m_Name: GM_Pool
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -713,9 +713,9 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 651683910}
   - {fileID: 1925715191}
   - {fileID: 489615363}
-  - {fileID: 651683910}
   - {fileID: 429051122}
   - {fileID: 1897520512}
   m_Father: {fileID: 0}
@@ -1332,7 +1332,7 @@ GameObject:
   - component: {fileID: 1897520514}
   - component: {fileID: 1897520515}
   m_Layer: 0
-  m_Name: Net
+  m_Name: GM_Net
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1387,7 +1387,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1925715191}
   m_Layer: 0
-  m_Name: Debuger
+  m_Name: GM_Debuger
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

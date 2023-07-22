@@ -10,4 +10,9 @@ public class GC_Net : MonoBehaviour
         public const ushort CS_Logout_Req = 103;
         public const ushort SC_Logout_Res = 104;
     }
+
+    public const int HEAD_LEN_LEN = 2;
+    public const int HEAD_ID_LEN  = 2;
+
+    public static int HEAD_LEN { get { return HEAD_ID_LEN + HEAD_LEN_LEN; } }
 }
