@@ -43,7 +43,7 @@ public class GM_Net : MonoBehaviour, IManager
     }
 
     //给服务器发送数据
-    public void Send(NetMsg data, ushort id)
+    public void Send(NetMsg data, int id)
     {
         client.Send(PackNetMsg(data, id));
     }
@@ -51,6 +51,11 @@ public class GM_Net : MonoBehaviour, IManager
     //注册监听
     public void AddNetListener(int id, NetMsgCallBack cb) {
         client.netListenerMap.TryAdd(id, cb);
+    }
+
+    //注册监听
+    public void RemoveNetListener(int id) {
+        client.netListenerMap.Remove(id);
     }
 
     public enum E_NetState
@@ -276,6 +281,11 @@ public class GM_Net : MonoBehaviour, IManager
             Debug.Log("开始接收消息");
         }
 
+        private void ReReceive()
+        {
+            clientStream.BeginRead(rawBuff, 0, rawBuff.Length, OnReceiveData, clientStream);
+        }
+
         //持续接收服务器推送
         private void OnReceiveData(IAsyncResult ar)
         {
@@ -288,7 +298,7 @@ public class GM_Net : MonoBehaviour, IManager
                         Debug.LogError($"IAsyncResult is null!");
                     }
 
-                    NetworkStream steam = ar.AsyncState as NetworkStream;
+                    NetworkStream steam = (NetworkStream)ar.AsyncState;
                     if (steam == null)
                     {
                         Debug.LogError($"NetworkStream is null!");
@@ -335,6 +345,7 @@ public class GM_Net : MonoBehaviour, IManager
                             break;
                         }
                     }
+                    ReReceive();
                 }
                 catch (Exception e)
                 {
