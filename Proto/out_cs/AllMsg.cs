@@ -23,7 +23,7 @@ public static partial class AllMsgReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "CgxBbGxNc2cucHJvdG8aC0xvZ2luLnByb3RvIq4BCgZOZXRNc2cSDAoEY29k",
-          "ZRgBIAEoCRIhCghsb2dpblJlcRgCIAEoCzINLkNTX0xvZ2luX1JlcUgAEiEK",
+          "ZRgBIAEoBRIhCghsb2dpblJlcRgCIAEoCzINLkNTX0xvZ2luX1JlcUgAEiEK",
           "CGxvZ2luUmVzGAMgASgLMg0uU0NfTG9naW5fUmVzSAASIwoJbG9nb3V0UmVx",
           "GAQgASgLMg4uQ1NfTG9nb3V0X1JlcUgAEiMKCWxvZ291dFJlcxgFIAEoCzIO",
           "LlNDX0xvZ291dF9SZXNIAEIGCgRkYXRhYgZwcm90bzM="));
@@ -88,12 +88,12 @@ public sealed partial class NetMsg : pb::IMessage<NetMsg> {
 
   /// <summary>Field number for the "code" field.</summary>
   public const int CodeFieldNumber = 1;
-  private string code_ = "";
+  private int code_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-  public string Code {
+  public int Code {
     get { return code_; }
     set {
-      code_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      code_ = value;
     }
   }
 
@@ -190,7 +190,7 @@ public sealed partial class NetMsg : pb::IMessage<NetMsg> {
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   public override int GetHashCode() {
     int hash = 1;
-    if (Code.Length != 0) hash ^= Code.GetHashCode();
+    if (Code != 0) hash ^= Code.GetHashCode();
     if (dataCase_ == DataOneofCase.LoginReq) hash ^= LoginReq.GetHashCode();
     if (dataCase_ == DataOneofCase.LoginRes) hash ^= LoginRes.GetHashCode();
     if (dataCase_ == DataOneofCase.LogoutReq) hash ^= LogoutReq.GetHashCode();
@@ -209,9 +209,9 @@ public sealed partial class NetMsg : pb::IMessage<NetMsg> {
 
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   public void WriteTo(pb::CodedOutputStream output) {
-    if (Code.Length != 0) {
-      output.WriteRawTag(10);
-      output.WriteString(Code);
+    if (Code != 0) {
+      output.WriteRawTag(8);
+      output.WriteInt32(Code);
     }
     if (dataCase_ == DataOneofCase.LoginReq) {
       output.WriteRawTag(18);
@@ -237,8 +237,8 @@ public sealed partial class NetMsg : pb::IMessage<NetMsg> {
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   public int CalculateSize() {
     int size = 0;
-    if (Code.Length != 0) {
-      size += 1 + pb::CodedOutputStream.ComputeStringSize(Code);
+    if (Code != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(Code);
     }
     if (dataCase_ == DataOneofCase.LoginReq) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(LoginReq);
@@ -263,7 +263,7 @@ public sealed partial class NetMsg : pb::IMessage<NetMsg> {
     if (other == null) {
       return;
     }
-    if (other.Code.Length != 0) {
+    if (other.Code != 0) {
       Code = other.Code;
     }
     switch (other.DataCase) {
@@ -304,8 +304,8 @@ public sealed partial class NetMsg : pb::IMessage<NetMsg> {
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
-        case 10: {
-          Code = input.ReadString();
+        case 8: {
+          Code = input.ReadInt32();
           break;
         }
         case 18: {

@@ -4,7 +4,7 @@ import "Login.proto";
 
 message NetMsg
 {
-	string code = 1;
+	int32 code = 1;
 	oneof data 
 	{
 		//登录 | 登出

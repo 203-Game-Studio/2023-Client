@@ -7,6 +7,8 @@ using System.Net.Sockets;
 using System.Threading;
 using UnityEngine;
 
+public delegate void NetMsgCallBack(NetMsg msg);
+
 public class GM_Net : MonoBehaviour, IManager
 {
     private readonly string serverName = "203 Game Sever";//服务器名
@@ -44,6 +46,11 @@ public class GM_Net : MonoBehaviour, IManager
     public void Send(NetMsg data, ushort id)
     {
         client.Send(PackNetMsg(data, id));
+    }
+
+    //注册监听
+    public void AddNetListener(int id, NetMsgCallBack cb) {
+        client.netListenerMap.TryAdd(id, cb);
     }
 
     public enum E_NetState
@@ -117,6 +124,9 @@ public class GM_Net : MonoBehaviour, IManager
         public Queue<byte[]> receiveBytesList = new Queue<byte[]>();
         //发送数据队列
         public Queue<byte[]> sendBytesList = new Queue<byte[]>();
+
+        //监听注册map
+        public Dictionary<int, NetMsgCallBack> netListenerMap = new Dictionary<int, NetMsgCallBack>(); 
 
         //初始化
         public void Init(string ip, int port)
@@ -308,7 +318,7 @@ public class GM_Net : MonoBehaviour, IManager
                     while (byteBuffer.Remaining() > GC_Net.HEAD_LEN)
                     {
                         int dataLen = byteBuffer.GetInt();
-                        ushort id = byteBuffer.GetUShort();
+                        int id = byteBuffer.GetInt();
                         if (byteBuffer.Remaining() >= dataLen)
                         {
                             byte[] data = new byte[dataLen];
@@ -346,8 +356,24 @@ public class GM_Net : MonoBehaviour, IManager
                 {
                     while (receiveBytesList.Count > 0)
                     {
-                        NetMsg msg = GU_ProtoBuf.Deserialize(receiveBytesList.Dequeue()) as NetMsg;
-                        //todo 分发
+                        try {
+                            NetMsg msg = GU_ProtoBuf.Deserialize(receiveBytesList.Dequeue()) as NetMsg;
+
+                            if (msg != null)
+                            {
+#if UNITY_EDITOR
+                                Debug.Log($"收到服务器消息! 协议号:{msg.Code} 数据：{msg.ToString()}");
+#endif
+                                if (netListenerMap.TryGetValue(msg.Code, out var callback))
+                                {
+                                    callback(msg);
+                                }
+                            }
+                        }
+                        catch(Exception e)
+                        {
+                            Debug.LogError($"解包异常! {e}");
+                        }
                     }
                 }
             }
@@ -446,7 +472,7 @@ public class GM_Net : MonoBehaviour, IManager
 
     // 网络封包方法
     // |协议数据长度|协议ID|协议内容|
-    public static byte[] PackNetMsg(NetMsg data, ushort id)
+    public static byte[] PackNetMsg(NetMsg data, int id)
     {
         using (MemoryStream ms = new MemoryStream())
         {
@@ -454,13 +480,12 @@ public class GM_Net : MonoBehaviour, IManager
             using (BinaryWriter bw = new BinaryWriter(ms))
             {
                 byte[] msgData = GU_ProtoBuf.Serialize(data);
-                ushort len = (ushort)msgData.Length;
-                bw.Write(len);
+                bw.Write(msgData.Length);
                 bw.Write(id);
                 bw.Write(msgData);
                 bw.Flush();
 #if UNITY_EDITOR
-                Debug.Log($"协议长度:{len} 协议ID:{id} 数据:{msgData}");
+                Debug.Log($"协议长度:{msgData.Length} 协议ID:{id} 数据:{msgData}");
 #endif
                 return ms.ToArray();
             }
