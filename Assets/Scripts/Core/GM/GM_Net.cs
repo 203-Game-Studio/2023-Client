@@ -455,13 +455,11 @@ public class GM_Net : MonoBehaviour, IManager
             if (clientStream != null)
             {
                 clientStream.Close();
-                clientStream.Dispose();
                 clientStream = null;
             }
             if (client != null)
             {
                 client.Close();
-                client.Dispose();
                 client = null;
             }
             sendBytesList.Clear();
