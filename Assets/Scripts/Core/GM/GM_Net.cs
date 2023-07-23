@@ -13,7 +13,7 @@ public class GM_Net : MonoBehaviour, IManager
 {
     private readonly string serverName = "203 Game Sever";//服务器名
     private readonly int serverID = 1;//服务器ID
-    private readonly string serverIP = "39.105.212.17";//服务器ip地址
+    private readonly string serverIP = "39.105.212.17";//服务器ip地址 "127.0.0.1"
     private readonly int serverPort = 9903;//端口号
 
     private Client client = new Client();

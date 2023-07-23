@@ -1,6 +1,6 @@
 public class Net_Login : Net_Base
 {
-    public override int ListenerID => GC_Net.NetMsgCode.CS_Login_Req;
+    public override int ListenerID => GC_Net.NetMsgCode.SC_Login_Res;
 
     private static Net_Login Get(CS_Login_Req req)
     {
