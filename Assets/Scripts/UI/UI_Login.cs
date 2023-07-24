@@ -9,9 +9,10 @@ public class UI_Login : UIBase
     public TMP_InputField pwdInputField;
     public TMP_Text debug;
 
-    public UI_Login() : base("UI_Login", UILayerType.Upper, UILoadType.Async){}
+    public UI_Login() : base("UI_Login", UILayerType.Upper, UILoadType.Async) { }
 
-    private void OnClickLoginBtn() {
+    private void OnClickLoginBtn()
+    {
         string uidStr = uidInputField.text;
         string pwdStr = pwdInputField.text;
         int uid = -1;
@@ -27,6 +28,11 @@ public class UI_Login : UIBase
 
     protected override void OnInit()
     {
+        loginBtn = uiGameObject.transform.Find("LoginWindow/LoginBtn").GetComponent<Button>();
+        uidInputField = uiGameObject.transform.Find("LoginWindow/UID").GetComponent<TMP_InputField>();
+        pwdInputField = uiGameObject.transform.Find("LoginWindow/Pwd").GetComponent<TMP_InputField>();
+        debug = uiGameObject.transform.Find("Debug").GetComponent<TMP_Text>();
+
         loginBtn.onClick.RemoveAllListeners();
         loginBtn.onClick.AddListener(OnClickLoginBtn);
     }

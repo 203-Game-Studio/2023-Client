@@ -71,12 +71,21 @@ public abstract class UIBase
         get { return activeSelf; } 
         set { 
             activeSelf = value;
+            uiGameObject.SetActive(activeSelf);
+
             if (activeSelf) OnActive();
             else OnDeActive();
         }
     }
 
+    /// <summary>
+    /// 层级
+    /// </summary>
     protected UILayerType layerType;
+
+    /// <summary>
+    /// 加载方式
+    /// </summary>
     protected UILoadType loadType;
 
 
@@ -111,7 +120,8 @@ public abstract class UIBase
         //todo: 后面改成Addressables方式加载，先写点丑陋的
         if (loadType == UILoadType.Sync)
         {
-            GameObject go = Resources.Load<GameObject>(uiName);
+            GameObject go = GameObject.Instantiate(Resources.Load<GameObject>(uiName));
+            go.name = uiName;
             OnLoadFinish(go);
         }
         else { 
@@ -122,33 +132,42 @@ public abstract class UIBase
         }
     }
 
-    private void OnLoadFinish(GameObject go) {
-        if (go == null) {
+    //加载成功回调
+    private void OnLoadFinish(GameObject prefab) {
+        if (prefab == null) {
             Debug.LogError($"{uiName}加载失败！");
             return;
         }
 
         //初始化UI GameObject
+        GameObject go = GameObject.Instantiate(prefab);
+        go.name = uiName;
         uiGameObject = go;
-        uiGameObject.transform.localScale = Vector3.one;
-        uiGameObject.transform.localPosition = Vector3.zero;
 
         //放到对应层级
         SetPanetByLayerType(layerType);
+
+        //重置transform数值
+        uiGameObject.transform.localScale = Vector3.one;
+        uiGameObject.transform.localPosition = Vector3.zero;
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.offsetMin = new Vector2(0.0f, 0.0f);
+        rt.offsetMax = new Vector2(0.0f, 0.0f);
 
         isInited = true;
 
         OnInit();
     }
 
-    public void DestoryUI() {
-        if (cacheUI)
+    public void DestoryUI(bool forceDestory = false) {
+        if (forceDestory || !cacheUI)
         {
-            //todo: 扔池子里
-        }
-        else {
             OnDestory();
             GameObject.Destroy(uiGameObject);
+        }
+        else
+        {
+            //todo: 扔池子里
         }
         isInited = false;
         activeSelf = false;
@@ -159,23 +178,22 @@ public abstract class UIBase
     /// </summary>
     /// <param name="layerType"></param>
     protected void SetPanetByLayerType(UILayerType layerType){
-        //todo : GM_UI
         switch (layerType)
         {
             case UILayerType.Top:
-                uiGameObject.transform.SetParent(GM_UI.Instance.TopLayer);
+                uiGameObject.transform.SetParent(GM_UI.Instance.TopLayerTransform);
                 break;
             case UILayerType.Upper:
-                uiGameObject.transform.SetParent(GM_UI.Instance.UpperLayer);
+                uiGameObject.transform.SetParent(GM_UI.Instance.UpperLayerTransform);
                 break;
             case UILayerType.Normal:
-                uiGameObject.transform.SetParent(GM_UI.Instance.NormalLayer);
+                uiGameObject.transform.SetParent(GM_UI.Instance.NormalLayerTransform);
                 break;
             case UILayerType.Lower:
-                uiGameObject.transform.SetParent(GM_UI.Instance.LowerLayer);
+                uiGameObject.transform.SetParent(GM_UI.Instance.LowerLayerTransform);
                 break;
             case UILayerType.HUD:
-                uiGameObject.transform.SetParent(GM_UI.Instance.HUDLayer);
+                uiGameObject.transform.SetParent(GM_UI.Instance.HUDLayerTransform);
                 break;
         }
     }

@@ -9,6 +9,9 @@ using UnityEngine;
 
 public delegate void NetMsgCallBack(NetMsg msg);
 
+/// <summary>
+/// 网络管理器
+/// </summary>
 public class GM_Net : MonoBehaviour, IManager
 {
     private readonly string serverName = "203 Game Sever";//服务器名
