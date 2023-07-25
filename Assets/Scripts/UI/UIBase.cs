@@ -139,16 +139,15 @@ public abstract class UIBase
     }
 
     //加载成功回调
-    private void OnLoadFinish(GameObject prefab) {
-        if (prefab == null) {
+    private void OnLoadFinish(GameObject go) {
+        if (go == null) {
             Debug.LogError($"{uiName}加载失败！");
             return;
         }
 
         //初始化UI GameObject
-        GameObject go = GameObject.Instantiate(prefab);
-        go.name = uiName;
         uiGameObject = go;
+        uiGameObject.name = uiName;
 
         //放到对应层级
         SetPanetByLayerType(layerType);
@@ -170,7 +169,6 @@ public abstract class UIBase
         {
             OnDestory();
             Addressables.Release(handler);
-            GameObject.Destroy(uiGameObject);
         }
         else
         {
