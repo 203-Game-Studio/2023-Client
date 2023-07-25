@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 //UI层级类型
 public enum UILayerType
@@ -88,6 +90,8 @@ public abstract class UIBase
     /// </summary>
     protected UILoadType loadType;
 
+    private AsyncOperationHandle<GameObject> handler;
+
 
     protected UIBase(string uiName, UILayerType layerType, UILoadType loadType) {
         this.uiName = uiName;
@@ -117,17 +121,19 @@ public abstract class UIBase
     protected abstract void OnDestory();
 
     public void InitUI() {
-        //todo: 后面改成Addressables方式加载，先写点丑陋的
         if (loadType == UILoadType.Sync)
         {
-            GameObject go = GameObject.Instantiate(Resources.Load<GameObject>(uiName));
-            go.name = uiName;
+            GameObject go = Addressables.InstantiateAsync(uiName).WaitForCompletion();
             OnLoadFinish(go);
         }
-        else { 
-            var req = Resources.LoadAsync<GameObject>(uiName);
-            req.completed += (AsyncOperation obj) => {
-                OnLoadFinish(req.asset as GameObject);
+        else {
+            handler = Addressables.InstantiateAsync(uiName);
+            handler.Completed += (AsyncOperationHandle<GameObject> go) => {
+                if (handler.Status != AsyncOperationStatus.Succeeded) {
+                    Debug.LogError($"{uiName}加载失败！");
+                    return;
+                }
+                OnLoadFinish(go.Result);
             };
         }
     }
@@ -163,6 +169,7 @@ public abstract class UIBase
         if (forceDestory || !cacheUI)
         {
             OnDestory();
+            Addressables.Release(handler);
             GameObject.Destroy(uiGameObject);
         }
         else

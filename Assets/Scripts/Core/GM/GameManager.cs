@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 public class GameManager : MonoBehaviour
 {
@@ -22,6 +23,9 @@ public class GameManager : MonoBehaviour
     {
         _instance = this;
         DontDestroyOnLoad(_instance);
+
+        //提前初始化Addressables 否则第一次调用WaitForCompletion会卡死
+        Addressables.InitializeAsync();
 
         gmNet = gameObject.GetComponentInChildren<GM_Net>();
         gmUI = gameObject.GetComponentInChildren<GM_UI>();
