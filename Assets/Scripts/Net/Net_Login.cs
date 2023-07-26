@@ -1,4 +1,4 @@
-public class Net_Login : Net_Base
+public class Net_Login : NetBase
 {
     public override int ListenerID => GC_Net.NetMsgCode.SC_Login_Res;
 

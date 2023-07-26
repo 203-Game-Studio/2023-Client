@@ -1,7 +1,7 @@
 using Google.Protobuf;
 using System;
 
-public abstract class Net_Base
+public abstract class NetBase
 {
     // 协议返回成功
     public Action<NetMsg> OnSuccess;
@@ -12,15 +12,15 @@ public abstract class Net_Base
 
     public NetMsg MsgRequest { get; } = new NetMsg();
 
-    public static T Get<T>(IMessage msg) where T : Net_Base
+    public static T Get<T>(IMessage msg) where T : NetBase
     {
         return (T)Get(typeof(T), msg);
     }
 
-    public static Net_Base Get(Type type, IMessage req)
+    public static NetBase Get(Type type, IMessage req)
     {
         if (type == null || req == null) return null;
-        var netType = (Net_Base)Activator.CreateInstance(type);
+        var netType = (NetBase)Activator.CreateInstance(type);
         netType?.Init(req);
         return netType;
     }
