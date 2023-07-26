@@ -17,23 +17,23 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: b2b7dfe4cf7762947973d22fb93a1f7f
   m_SerializeEntries:
-  - m_GUID: 170f01db0be52eb4cbc8a838deeffcd5
-    m_Address: Gun
+  - m_GUID: 9f26b5ab9ee32a04b82a18e78e147a71
+    m_Address: Mat_ZeldaHairLong
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 6d92a3b554c4eb54091f99256e5a8185
-    m_Address: PlayerColor1
+  - m_GUID: eb946e9d6d203114eb9d1bfc29ccda96
+    m_Address: Mat_ZeldaHair
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0f0717b4e1b7b144dbd1e58a8e587482
-    m_Address: PlayerColor2
+  - m_GUID: a2f68bb7f066e33428301ab7db3852d6
+    m_Address: Mat_Zelda
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 35399c0ac19c8a445ad61a0cd4f45d39
-    m_Address: PlayerColor3
+  - m_GUID: cc91384dcc8e32d498a0f5c00977d8f6
+    m_Address: Mat_ZeldaEyes
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
