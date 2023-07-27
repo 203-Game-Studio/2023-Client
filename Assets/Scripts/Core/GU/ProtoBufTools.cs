@@ -2,7 +2,7 @@ using Google.Protobuf;
 using System.IO;
 using UnityEngine;
 
-public class GU_ProtoBuf : MonoBehaviour
+public class ProtoBufTools : MonoBehaviour
 {
     // 序列化
     public static byte[] Serialize(IMessage msg)

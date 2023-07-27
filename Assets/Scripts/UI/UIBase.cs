@@ -3,7 +3,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
 //UI层级类型
-public enum UILayerType
+public enum EUILayerType
 {
     Top,
     Upper,
@@ -13,7 +13,7 @@ public enum UILayerType
 }
 
 //UI加载方式
-public enum UILoadType { 
+public enum EUILoadType { 
     Sync,
     Async
 }
@@ -83,17 +83,17 @@ public abstract class UIBase
     /// <summary>
     /// 层级
     /// </summary>
-    protected UILayerType layerType;
+    protected EUILayerType layerType;
 
     /// <summary>
     /// 加载方式
     /// </summary>
-    protected UILoadType loadType;
+    protected EUILoadType loadType;
 
-    private AsyncOperationHandle<GameObject> handler;
+    private AsyncOperationHandle<GameObject> _handler;
 
 
-    protected UIBase(string uiName, UILayerType layerType, UILoadType loadType) {
+    protected UIBase(string uiName, EUILayerType layerType, EUILoadType loadType) {
         this.uiName = uiName;
         this.layerType = layerType;
         this.loadType = loadType;
@@ -121,15 +121,15 @@ public abstract class UIBase
     protected abstract void OnDestory();
 
     public void InitUI() {
-        if (loadType == UILoadType.Sync)
+        if (loadType == EUILoadType.Sync)
         {
             GameObject go = Addressables.InstantiateAsync(uiName).WaitForCompletion();
             OnLoadFinish(go);
         }
         else {
-            handler = Addressables.InstantiateAsync(uiName);
-            handler.Completed += (AsyncOperationHandle<GameObject> go) => {
-                if (handler.Status != AsyncOperationStatus.Succeeded) {
+            _handler = Addressables.InstantiateAsync(uiName);
+            _handler.Completed += (AsyncOperationHandle<GameObject> go) => {
+                if (_handler.Status != AsyncOperationStatus.Succeeded) {
                     Debug.LogError($"{uiName}加载失败！");
                     return;
                 }
@@ -168,7 +168,7 @@ public abstract class UIBase
         if (forceDestory || !cacheUI)
         {
             OnDestory();
-            Addressables.Release(handler);
+            Addressables.Release(_handler);
         }
         else
         {
@@ -182,23 +182,23 @@ public abstract class UIBase
     /// 设置UI层级
     /// </summary>
     /// <param name="layerType"></param>
-    protected void SetPanetByLayerType(UILayerType layerType){
+    protected void SetPanetByLayerType(EUILayerType layerType){
         switch (layerType)
         {
-            case UILayerType.Top:
-                uiGameObject.transform.SetParent(GM_UI.Instance.TopLayerTransform);
+            case EUILayerType.Top:
+                uiGameObject.transform.SetParent(UIManager.Instance.TopLayerTransform);
                 break;
-            case UILayerType.Upper:
-                uiGameObject.transform.SetParent(GM_UI.Instance.UpperLayerTransform);
+            case EUILayerType.Upper:
+                uiGameObject.transform.SetParent(UIManager.Instance.UpperLayerTransform);
                 break;
-            case UILayerType.Normal:
-                uiGameObject.transform.SetParent(GM_UI.Instance.NormalLayerTransform);
+            case EUILayerType.Normal:
+                uiGameObject.transform.SetParent(UIManager.Instance.NormalLayerTransform);
                 break;
-            case UILayerType.Lower:
-                uiGameObject.transform.SetParent(GM_UI.Instance.LowerLayerTransform);
+            case EUILayerType.Lower:
+                uiGameObject.transform.SetParent(UIManager.Instance.LowerLayerTransform);
                 break;
-            case UILayerType.HUD:
-                uiGameObject.transform.SetParent(GM_UI.Instance.HUDLayerTransform);
+            case EUILayerType.HUD:
+                uiGameObject.transform.SetParent(UIManager.Instance.HUDLayerTransform);
                 break;
         }
     }

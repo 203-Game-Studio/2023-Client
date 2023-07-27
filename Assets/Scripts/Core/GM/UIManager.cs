@@ -5,58 +5,58 @@ using UnityEngine;
 /// <summary>
 /// UI管理器
 /// </summary>
-public class GM_UI : MonoBehaviour, IManager
+public class UIManager : MonoBehaviour, IManager
 {
-    public static GM_UI Instance => GameManager.Instance.gmUI;
+    public static UIManager Instance => GameManager.Instance.UIMgr;
 
     //五个UI层级
-    private Transform topLayerTransform;
-    private Transform upperLayerTransform;
-    private Transform normalLayerTransform;
-    private Transform lowerLayerTransform;
-    private Transform hudLayerTransform;
+    private Transform _topLayerTransform;
+    private Transform _upperLayerTransform;
+    private Transform _normalLayerTransform;
+    private Transform _lowerLayerTransform;
+    private Transform _hudLayerTransform;
     public Transform TopLayerTransform { 
-        get { return topLayerTransform; }
+        get { return _topLayerTransform; }
     }
     public Transform UpperLayerTransform
     {
-        get { return upperLayerTransform; }
+        get { return _upperLayerTransform; }
     }
     public Transform NormalLayerTransform
     {
-        get { return normalLayerTransform; }
+        get { return _normalLayerTransform; }
     }
     public Transform LowerLayerTransform
     {
-        get { return lowerLayerTransform; }
+        get { return _lowerLayerTransform; }
     }
     public Transform HUDLayerTransform
     {
-        get { return hudLayerTransform; }
+        get { return _hudLayerTransform; }
     }
 
     //UI相机
-    private Camera uiCamera;
-    public Camera UICamera => uiCamera;
+    private Camera _uiCamera;
+    public Camera UICamera => _uiCamera;
 
     //UI根节点
-    public GameObject uiRoot => this.gameObject;
+    public GameObject UIRoot => this.gameObject;
 
     //UI实例查找表
-    private static Dictionary<Type, UIBase> uiMap;
+    private static Dictionary<Type, UIBase> _uiMap;
 
     //绑定Layer及初始化UI查找表
     public void OnManagerInit()
     {
-        topLayerTransform = transform.Find("UICanvas/TopLayer");
-        upperLayerTransform = transform.Find("UICanvas/UpperLayer");
-        normalLayerTransform = transform.Find("UICanvas/NormalLayer");
-        lowerLayerTransform = transform.Find("UICanvas/LowerLayer");
-        hudLayerTransform = transform.Find("UICanvas/HUDLayer");
+        _topLayerTransform = transform.Find("UICanvas/TopLayer");
+        _upperLayerTransform = transform.Find("UICanvas/UpperLayer");
+        _normalLayerTransform = transform.Find("UICanvas/NormalLayer");
+        _lowerLayerTransform = transform.Find("UICanvas/LowerLayer");
+        _hudLayerTransform = transform.Find("UICanvas/HUDLayer");
 
-        uiMap = new Dictionary<Type, UIBase>
+        _uiMap = new Dictionary<Type, UIBase>
         {
-            { typeof(UI_Login), new UI_Login() }
+            { typeof(UILogin), new UILogin() }
         };
     }
 
@@ -65,16 +65,16 @@ public class GM_UI : MonoBehaviour, IManager
     //强制销毁所有UI
     public void OnManagerDestroy()
     {
-        topLayerTransform = null;
-        upperLayerTransform = null;
-        normalLayerTransform = null;
-        lowerLayerTransform = null;
-        hudLayerTransform = null;
+        _topLayerTransform = null;
+        _upperLayerTransform = null;
+        _normalLayerTransform = null;
+        _lowerLayerTransform = null;
+        _hudLayerTransform = null;
 
-        foreach (var ui in uiMap) {
+        foreach (var ui in _uiMap) {
             ui.Value.DestoryUI(true);
         }
-        uiMap.Clear();
+        _uiMap.Clear();
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public class GM_UI : MonoBehaviour, IManager
     private static T GetUI<T>() where T : UIBase
     {
         UIBase ui = null;
-        if (uiMap.TryGetValue(typeof(T), out ui))
+        if (_uiMap.TryGetValue(typeof(T), out ui))
         {
             return ui as T;
         }

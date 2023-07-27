@@ -1,8 +1,8 @@
 using UnityEngine;
 
-public class GM_Test : MonoBehaviour, IManager
+public class TestManager : MonoBehaviour, IManager
 {
-    public static GM_Test Instance => GameManager.Instance.gmTest;
+    public static TestManager Instance => GameManager.Instance.TestMgr;
     public void OnManagerInit()
     {
     }
@@ -10,16 +10,16 @@ public class GM_Test : MonoBehaviour, IManager
     public void OnManagerUpdate(float deltTime)
     {
         if (Input.GetKeyDown(KeyCode.A)) {
-            var loginUI = GM_UI.OpenUI<UI_Login>();
+            var loginUI = UIManager.OpenUI<UILogin>();
         }
         if (Input.GetKeyDown(KeyCode.D)) {
-            var loginUI = GM_UI.CloseUI<UI_Login>();
+            var loginUI = UIManager.CloseUI<UILogin>();
         }
         if (Input.GetKeyDown(KeyCode.J)) {
-            GM_UI.ActiveUI<UI_Login>();
+            UIManager.ActiveUI<UILogin>();
         }
         if (Input.GetKeyDown(KeyCode.K)) {
-            GM_UI.DeactiveUI<UI_Login>();
+            UIManager.DeactiveUI<UILogin>();
         }
     }
 

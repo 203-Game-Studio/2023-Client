@@ -42,12 +42,12 @@ public abstract class NetBase
 
     public void AddNetListener()
     {
-        GM_Net.Instance.AddNetListener(ListenerID, Response);
+        NetManager.Instance.AddNetListener(ListenerID, Response);
     }
 
     public void RemoveNetListener()
     {
-        GM_Net.Instance.RemoveNetListener(ListenerID);
+        NetManager.Instance.RemoveNetListener(ListenerID);
     }
 
     protected virtual void Response(NetMsg msg)
@@ -60,7 +60,7 @@ public abstract class NetBase
 
     public virtual void Request()
     {
-        GameManager.Instance.gmNet.Send(MsgRequest, ListenerID);
+        GameManager.Instance.NetMgr.Send(MsgRequest, ListenerID);
     }
 
     protected virtual void Clear()

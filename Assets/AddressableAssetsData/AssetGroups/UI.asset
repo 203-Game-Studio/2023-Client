@@ -18,7 +18,7 @@ MonoBehaviour:
   m_GUID: 6c843eaff17549e49973b96887e44de4
   m_SerializeEntries:
   - m_GUID: dda6060ef6269964abaf74723444e50c
-    m_Address: UI_Login
+    m_Address: UILogin
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class GC_Net : MonoBehaviour
+public class NetConst : MonoBehaviour
 {
     public class NetMsgCode
     {
