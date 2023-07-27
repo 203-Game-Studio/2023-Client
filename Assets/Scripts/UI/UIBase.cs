@@ -12,12 +12,6 @@ public enum EUILayerType
     HUD,
 }
 
-//UI加载方式
-public enum EUILoadType { 
-    Sync,
-    Async
-}
-
 public abstract class UIBase
 {
     /// <summary>
@@ -85,18 +79,11 @@ public abstract class UIBase
     /// </summary>
     protected EUILayerType layerType;
 
-    /// <summary>
-    /// 加载方式
-    /// </summary>
-    protected EUILoadType loadType;
 
-    private AsyncOperationHandle<GameObject> _handler;
-
-
-    protected UIBase(string uiName, EUILayerType layerType, EUILoadType loadType) {
+    protected UIBase(string uiName, EUILayerType layerType, bool cacheUI = false) {
         this.uiName = uiName;
         this.layerType = layerType;
-        this.loadType = loadType;
+        this.cacheUI = cacheUI;
     }
 
     /// <summary>
@@ -121,21 +108,8 @@ public abstract class UIBase
     protected abstract void OnDestory();
 
     public void InitUI() {
-        if (loadType == EUILoadType.Sync)
-        {
-            GameObject go = Addressables.InstantiateAsync(uiName).WaitForCompletion();
-            OnLoadFinish(go);
-        }
-        else {
-            _handler = Addressables.InstantiateAsync(uiName);
-            _handler.Completed += (AsyncOperationHandle<GameObject> go) => {
-                if (_handler.Status != AsyncOperationStatus.Succeeded) {
-                    Debug.LogError($"{uiName}加载失败！");
-                    return;
-                }
-                OnLoadFinish(go.Result);
-            };
-        }
+        //加载UI资源
+        AssetManager.GetInstance(uiName, OnLoadFinish, cacheUI);
     }
 
     //加载成功回调
@@ -164,18 +138,12 @@ public abstract class UIBase
         OnInit();
     }
 
-    public void DestoryUI(bool forceDestory = false) {
-        if (forceDestory || !cacheUI)
-        {
-            OnDestory();
-            Addressables.Release(_handler);
-        }
-        else
-        {
-            //todo: 扔池子里
-        }
+    public void DestoryUI(bool forceDestory = false)
+    {
+        OnDestory();
         isInited = false;
         activeSelf = false;
+        AssetManager.ReleaseInstance(uiGameObject, uiName, !forceDestory && cacheUI, 1);
     }
 
     /// <summary>

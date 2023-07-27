@@ -9,7 +9,7 @@ public class UILogin : UIBase
     public TMP_InputField pwdInputField;
     public TMP_Text DebugText;
 
-    public UILogin() : base("UILogin", EUILayerType.Upper, EUILoadType.Async) { }
+    public UILogin() : base("UILogin", EUILayerType.Upper, true) { }
 
     private void OnClickLoginBtn()
     {
