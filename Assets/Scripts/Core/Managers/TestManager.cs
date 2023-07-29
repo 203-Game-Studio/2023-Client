@@ -10,16 +10,16 @@ public class TestManager : MonoBehaviour, IManager
     public void OnManagerUpdate(float deltTime)
     {
         if (Input.GetKeyDown(KeyCode.A)) {
-            var loginUI = UIManager.OpenUI<UILogin>();
+            var loginUI = UIManager.OpenUI<UICharacterCreat>();
         }
         if (Input.GetKeyDown(KeyCode.D)) {
-            var loginUI = UIManager.CloseUI<UILogin>();
+            var loginUI = UIManager.CloseUI<UICharacterCreat>();
         }
         if (Input.GetKeyDown(KeyCode.J)) {
-            UIManager.ActiveUI<UILogin>();
+            UIManager.ActiveUI<UICharacterCreat>();
         }
         if (Input.GetKeyDown(KeyCode.K)) {
-            UIManager.DeactiveUI<UILogin>();
+            UIManager.DeactiveUI<UICharacterCreat>();
         }
     }
 

@@ -56,7 +56,8 @@ public class UIManager : MonoBehaviour, IManager
 
         _uiMap = new Dictionary<Type, UIBase>
         {
-            { typeof(UILogin), new UILogin() }
+            { typeof(UILogin), new UILogin() },
+            { typeof(UICharacterCreat), new UICharacterCreat() },
         };
     }
 

@@ -37,6 +37,26 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 86394a3f0ec7af34eb655faff813f99a
+    m_Address: CharacterCreatorBGMat
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8f4d6854e62dd78429cc515778fb9648
+    m_Address: jammo_eyes
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1bc4b6eb58edb5c459d1d2a07a7ef53a
+    m_Address: jammo_eyes_emoji
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4591a2edbb862e141a2246e0a801f1d0
+    m_Address: jammo_metal
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 7b86cfca024f17543ac964e54175a8e1, type: 2}
   m_SchemaSet:
