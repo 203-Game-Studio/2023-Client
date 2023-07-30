@@ -5,8 +5,10 @@ public class TestManager : MonoBehaviour, IManager
     public static TestManager Instance => GameManager.Instance.TestMgr;
     public void OnManagerInit()
     {
-        CharacterCreateTable a = XmlTools.XmlDeSerialize();
-        Debug.Log(a.Color.Length);
+        CharacterCreateTable a = XmlTools.XmlDeSerialize<CharacterCreateTable>();
+        XmlTools.BinarySerialize<CharacterCreateTable>(a);
+        CharacterCreateTable b = XmlTools.BinaryDeSerialize<CharacterCreateTable>();
+        Debug.Log(b.Color.Length);
     }
 
     public void OnManagerUpdate(float deltTime)
