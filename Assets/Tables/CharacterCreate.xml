@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2013 (http://www.altova.com) by  () -->
+<!--创建角色相关配置数据-->
+<CharacterCreateTable>
+	<!--颜色-->
+	<Color>
+		<id>1</id>
+		<desc>红</desc>
+		<texturePath>jammo_red</texturePath>
+	</Color>
+	<Color>
+		<id>2</id>
+		<desc>蓝</desc>
+		<texturePath>jammo_yellow</texturePath>
+	</Color>
+	<Color>
+		<id>3</id>
+		<desc>黄</desc>
+		<texturePath>jammo_blue</texturePath>
+	</Color>
+	<Color>
+		<id>4</id>
+		<desc>黑</desc>
+		<texturePath>jammo_black</texturePath>
+	</Color>
+</CharacterCreateTable>
