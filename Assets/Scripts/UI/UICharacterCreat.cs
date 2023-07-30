@@ -21,9 +21,9 @@ public class UICharacterCreat : UIBase
 
     public UICharacterCreat() : base("UICharacterCreat", EUILayerType.Normal, true) { }
 
-    private void OnClickLoginBtn()
+    private void OnClickColorChange(int idx)
     {
-
+        Debug.Log($"change to {idx}!");
     }
 
     protected override void OnInit()
@@ -33,9 +33,20 @@ public class UICharacterCreat : UIBase
         NameInputField = uiGameObject.transform.Find("CreatWindow/NameBar/NameInputField").GetComponent<TMP_InputField>();
 
         ColorItemRed = uiGameObject.transform.Find("CreatWindow/ColorBar/ColorItemRed").GetComponent<Button>();
+        ColorItemRed.onClick.RemoveAllListeners();
+        ColorItemRed.onClick.AddListener(() =>  OnClickColorChange(1) );
+
         ColorItemBlue = uiGameObject.transform.Find("CreatWindow/ColorBar/ColorItemBlue").GetComponent<Button>();
+        ColorItemBlue.onClick.RemoveAllListeners();
+        ColorItemBlue.onClick.AddListener(() => OnClickColorChange(2));
+
         ColorItemYellow = uiGameObject.transform.Find("CreatWindow/ColorBar/ColorItemYellow").GetComponent<Button>();
+        ColorItemYellow.onClick.RemoveAllListeners();
+        ColorItemYellow.onClick.AddListener(() => OnClickColorChange(3));
+
         ColorItemBlack = uiGameObject.transform.Find("CreatWindow/ColorBar/ColorItemBlack").GetComponent<Button>();
+        ColorItemBlack.onClick.RemoveAllListeners();
+        ColorItemBlack.onClick.AddListener(() => OnClickColorChange(4));
 
         EyeItem1 = uiGameObject.transform.Find("CreatWindow/EyeBar/EyeItem1").GetComponent<Button>();
         EyeItem2 = uiGameObject.transform.Find("CreatWindow/EyeBar/EyeItem2").GetComponent<Button>();
