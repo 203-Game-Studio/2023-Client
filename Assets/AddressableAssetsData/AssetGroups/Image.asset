@@ -16,7 +16,27 @@ MonoBehaviour:
   m_Data:
     m_SerializedData: []
   m_GUID: 904445008b824ac4884549c782a9b6d4
-  m_SerializeEntries: []
+  m_SerializeEntries:
+  - m_GUID: fb6e06c953f0d8045bc58e0f5a640f07
+    m_Address: mixbot_low_mixamo_edit1_AlbedoTransparency
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f61e83171850a834788a4664dbb54eae
+    m_Address: t_jammo_yellow
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 10c532508a2453a48aa766e69193d105
+    m_Address: t_jammo_blue
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c9fd4ccfc3404b04eae3cd87e40a8e2e
+    m_Address: t_jammo_black
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 7b86cfca024f17543ac964e54175a8e1, type: 2}
   m_SchemaSet:

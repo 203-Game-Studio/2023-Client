@@ -17,6 +17,8 @@ public class GameManager : MonoBehaviour
     public UIManager UIMgr { get; set; }
     //资源管理
     public AssetManager AssetMgr { get; set; }
+
+    public ScenceManager ScenceMgr { get; set; }
     //测试脚本挂载
     public TestManager TestMgr { get; set; }
     #endregion
@@ -32,6 +34,7 @@ public class GameManager : MonoBehaviour
         NetMgr = gameObject.GetComponentInChildren<NetManager>();
         AssetMgr = gameObject.GetComponentInChildren<AssetManager>();
         UIMgr = gameObject.GetComponentInChildren<UIManager>();
+        ScenceMgr = gameObject.GetComponentInChildren<ScenceManager>();
         TestMgr = gameObject.GetComponentInChildren<TestManager>();
     }
 
@@ -40,6 +43,7 @@ public class GameManager : MonoBehaviour
         NetMgr.OnManagerInit();
         AssetMgr.OnManagerInit();
         UIMgr.OnManagerInit();
+        ScenceMgr.OnManagerInit();
         TestMgr.OnManagerInit();
     }
 
@@ -50,6 +54,7 @@ public class GameManager : MonoBehaviour
         NetMgr.OnManagerUpdate(deltTime);
         AssetMgr.OnManagerUpdate(deltTime);
         UIMgr.OnManagerUpdate(deltTime);
+        ScenceMgr.OnManagerUpdate(deltTime);
         TestMgr.OnManagerUpdate(deltTime);
     }
 
@@ -58,6 +63,7 @@ public class GameManager : MonoBehaviour
         NetMgr.OnManagerDestroy();
         AssetMgr.OnManagerDestroy();
         UIMgr.OnManagerDestroy();
+        ScenceMgr.OnManagerDestroy();
         TestMgr.OnManagerDestroy();
     }
 }
