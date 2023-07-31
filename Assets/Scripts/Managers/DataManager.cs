@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// 资源管理器
 /// </summary>
-public class DataManager : MonoBehaviour, IManager
+public partial class DataManager : MonoBehaviour, IManager
 {
     public static CharacterCreateTable characterCreateTable;
 

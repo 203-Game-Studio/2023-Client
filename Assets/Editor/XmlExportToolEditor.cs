@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-public class XmlExportToolEditor : EditorWindow
+public partial class XmlExportToolEditor : EditorWindow
 {
     static XmlExportToolEditor instance;
 
