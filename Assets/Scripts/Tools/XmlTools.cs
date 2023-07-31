@@ -8,8 +8,7 @@ public class XmlTools
 {
     public static T XmlDeSerialize<T>()
     {
-        string name = typeof(T).Name;
-        using (FileStream fileStream = new FileStream($"{Application.dataPath}/Tables/{name.Substring(0, name.Length-5)}.xml", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+        using (FileStream fileStream = new FileStream($"{Application.dataPath}/Tables/{typeof(T).Name}.xml", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
         {
             XmlSerializer xs = new XmlSerializer(typeof(T));
             T model = (T)xs.Deserialize(fileStream);
@@ -19,7 +18,7 @@ public class XmlTools
 
     public static void BinarySerialize<T>(T serialize)
     {
-        using (FileStream fileStream = new FileStream($"{Application.dataPath}/Tables/{typeof(T).Name}.bytes", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
+        using (FileStream fileStream = new FileStream($"{Application.dataPath}/Tables/Bytes/{typeof(T).Name}.bytes", FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
         {
             BinaryFormatter binaryFormatter = new BinaryFormatter();
             binaryFormatter.Serialize(fileStream, serialize);
@@ -28,8 +27,7 @@ public class XmlTools
 
     public static T BinaryDeSerialize<T>()
     {
-        string name = typeof(T).Name;
-        TextAsset bytes = Addressables.LoadAssetAsync<TextAsset>($"{name.Substring(0, name.Length - 5)}").WaitForCompletion();
+        TextAsset bytes = Addressables.LoadAssetAsync<TextAsset>($"{typeof(T).Name}").WaitForCompletion();
         using (MemoryStream memoryStream = new MemoryStream(bytes.bytes))
         {
             BinaryFormatter binaryFormatter = new BinaryFormatter();

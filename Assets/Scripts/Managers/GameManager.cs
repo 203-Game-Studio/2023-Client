@@ -17,6 +17,8 @@ public class GameManager : MonoBehaviour
     public UIManager UIMgr { get; set; }
     //资源管理
     public AssetManager AssetMgr { get; set; }
+    //配置表数据管理
+    public DataManager DataMgr { get; set; }
 
     public ScenceManager ScenceMgr { get; set; }
     //测试脚本挂载
@@ -31,8 +33,9 @@ public class GameManager : MonoBehaviour
         //提前初始化Addressables 否则第一次调用WaitForCompletion会卡死
         Addressables.InitializeAsync();
 
-        NetMgr = gameObject.GetComponentInChildren<NetManager>();
         AssetMgr = gameObject.GetComponentInChildren<AssetManager>();
+        DataMgr = gameObject.GetComponentInChildren<DataManager>();
+        NetMgr = gameObject.GetComponentInChildren<NetManager>();
         UIMgr = gameObject.GetComponentInChildren<UIManager>();
         ScenceMgr = gameObject.GetComponentInChildren<ScenceManager>();
         TestMgr = gameObject.GetComponentInChildren<TestManager>();
@@ -40,6 +43,7 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        DataMgr.OnManagerInit();
         NetMgr.OnManagerInit();
         AssetMgr.OnManagerInit();
         UIMgr.OnManagerInit();
@@ -51,6 +55,7 @@ public class GameManager : MonoBehaviour
     {
         float deltTime = Time.deltaTime;
 
+        DataMgr.OnManagerUpdate(deltTime);
         NetMgr.OnManagerUpdate(deltTime);
         AssetMgr.OnManagerUpdate(deltTime);
         UIMgr.OnManagerUpdate(deltTime);
@@ -60,6 +65,7 @@ public class GameManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        DataMgr.OnManagerDestroy();
         NetMgr.OnManagerDestroy();
         AssetMgr.OnManagerDestroy();
         UIMgr.OnManagerDestroy();
