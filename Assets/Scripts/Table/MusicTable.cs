@@ -1,35 +1,65 @@
-using System.Collections.Generic;
 
+// 注意: 生成的代码可能至少需要 .NET Framework 4.5 或 .NET Core/Standard 2.0。
+/// <remarks/>
 [System.SerializableAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
 [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
 [System.Xml.Serialization.XmlRootAttribute(Namespace = "", IsNullable = false)]
-public class BGM
+public partial class MusicTable
 {
-    /// <summary>
-    /// 
-    /// </summary>
-    public string MusicID { get; set; }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    public string MusicPath { get; set; }
+    private MusicTableBGM[] bGMField;
 
+    /// <remarks/>
+    [System.Xml.Serialization.XmlElementAttribute("BGM")]
+    public MusicTableBGM[] BGM
+    {
+        get
+        {
+            return this.bGMField;
+        }
+        set
+        {
+            this.bGMField = value;
+        }
+    }
 }
-public class MusicTable
+
+/// <remarks/>
+[System.SerializableAttribute()]
+[System.ComponentModel.DesignerCategoryAttribute("code")]
+[System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
+public partial class MusicTableBGM
 {
-    /// <summary>
-    /// BGM
-    /// </summary>
-    public List<BGM> BGM { get; set; }
 
-}
-public class Root
-{
-    /// <summary>
-    /// MusicTable
-    /// </summary>
-    public MusicTable MusicTable { get; set; }
+    private string musicIDField;
 
+    private string musicPathField;
+
+    /// <remarks/>
+    public string MusicID
+    {
+        get
+        {
+            return this.musicIDField;
+        }
+        set
+        {
+            this.musicIDField = value;
+        }
+    }
+
+    /// <remarks/>
+    public string MusicPath
+    {
+        get
+        {
+            return this.musicPathField;
+        }
+        set
+        {
+            this.musicPathField = value;
+        }
+    }
 }
+
