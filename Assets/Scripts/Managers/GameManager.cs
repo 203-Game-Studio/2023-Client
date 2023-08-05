@@ -20,7 +20,11 @@ public class GameManager : MonoBehaviour
     //配置表数据管理
     public DataManager DataMgr { get; set; }
 
+    //场景管理
     public ScenceManager ScenceMgr { get; set; }
+    
+    //音乐管理
+    public MusicManager MusicMgr { get; set; }
     //测试脚本挂载
     public TestManager TestMgr { get; set; }
     #endregion
@@ -38,6 +42,7 @@ public class GameManager : MonoBehaviour
         NetMgr = gameObject.GetComponentInChildren<NetManager>();
         UIMgr = gameObject.GetComponentInChildren<UIManager>();
         ScenceMgr = gameObject.GetComponentInChildren<ScenceManager>();
+        MusicMgr = gameObject.GetComponentInChildren<MusicManager>();
         TestMgr = gameObject.GetComponentInChildren<TestManager>();
     }
 
@@ -48,6 +53,7 @@ public class GameManager : MonoBehaviour
         AssetMgr.OnManagerInit();
         UIMgr.OnManagerInit();
         ScenceMgr.OnManagerInit();
+        MusicMgr.OnManagerInit();
         TestMgr.OnManagerInit();
     }
 
@@ -60,6 +66,7 @@ public class GameManager : MonoBehaviour
         AssetMgr.OnManagerUpdate(deltTime);
         UIMgr.OnManagerUpdate(deltTime);
         ScenceMgr.OnManagerUpdate(deltTime);
+        MusicMgr.OnManagerUpdate(deltTime);
         TestMgr.OnManagerUpdate(deltTime);
     }
 
@@ -70,6 +77,7 @@ public class GameManager : MonoBehaviour
         AssetMgr.OnManagerDestroy();
         UIMgr.OnManagerDestroy();
         ScenceMgr.OnManagerDestroy();
+        MusicMgr.OnManagerDestroy();
         TestMgr.OnManagerDestroy();
     }
 }

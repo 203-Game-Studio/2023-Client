@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2013 (http://www.altova.com) by  () -->
+<!--音乐文件索引表-->
+<MusicTable>
+	<!--背景音乐-->
+	<BGM>
+		<MusicID>birdpserson</MusicID>
+		<MusicPath>birdperson</MusicPath>
+	</BGM>
+	<BGM>
+		<MusicID>kakalike</MusicID>
+		<MusicPath>kakalike</MusicPath>
+	</BGM>
+</MusicTable>

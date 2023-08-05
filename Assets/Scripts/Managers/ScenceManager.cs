@@ -7,6 +7,7 @@ using UnityEngine;
 /// </summary>
 public class ScenceManager : MonoBehaviour, IManager
 {
+    public static ScenceManager Instance => GameManager.Instance.ScenceMgr;   
     public Material RobotMaterial;
     public Material RobotEyesMaterial;
     public void OnManagerInit() {}
