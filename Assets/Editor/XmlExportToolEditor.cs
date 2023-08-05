@@ -30,6 +30,7 @@ public partial class XmlExportToolEditor : EditorWindow
     private void GenerateAllBytes() {
         //todo 先手动加 后面我给改成自动生成这个脚本
         GenerateOneBytes<CharacterCreateTable>();
+        GenerateOneBytes<MusicTable>();
 
         AssetDatabase.Refresh();
     }

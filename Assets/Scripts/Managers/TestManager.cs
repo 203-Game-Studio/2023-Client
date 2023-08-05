@@ -6,6 +6,7 @@ public class TestManager : MonoBehaviour, IManager
     public void OnManagerInit()
     {
         Debug.Log(DataManager.characterCreateTable.Color.Length);
+        MusicManager.Instance.ChangBGM(DataManager.musicTable.BGM[0].MusicPath);
     }
 
     public void OnManagerUpdate(float deltTime)

@@ -16,7 +16,17 @@ MonoBehaviour:
   m_Data:
     m_SerializedData: []
   m_GUID: da04cdf4f3e3f744eba46f5058cd87a1
-  m_SerializeEntries: []
+  m_SerializeEntries:
+  - m_GUID: 03a514c8bcf162045b84da1274e41b3b
+    m_Address: MusicTable
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0f32cff4495da4d40b70653e9b88474a
+    m_Address: CharacterCreateTable
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 7b86cfca024f17543ac964e54175a8e1, type: 2}
   m_SchemaSet:
