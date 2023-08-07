@@ -5,10 +5,16 @@ Shader "John/VegetationLeaves"
         [MainTexture] _BaseMap("Albedo", 2D) = "white" {}
         [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+        _HidePower("Hide Power", Float) = 2.5
 
         _GradientColor("Gradient Color", Color) = (1,1,1,0)
 		_GradientFalloff("Gradient Falloff", Range( 0 , 2)) = 2
 		_GradientPosition("Gradient Position", Range( 0 , 1)) = 0.5
+
+		_ColorVariationNoise("Color Variation Noise", 2D) = "white" {}
+		_NoiseScale("Noise Scale", Float) = 0.5
+        _ColorVariation("Color Variation", Color) = (1,0,0,0)
+		_ColorVariationPower("Color Variation Power", Range( 0 , 1)) = 1
 
 		_Scattering("Scattering", Float) = 1
 
@@ -19,7 +25,7 @@ Shader "John/VegetationLeaves"
 		_TransAmbient("Ambient", Range( 0, 1 ) ) = 0.1
 		_TransShadow("Shadow", Range( 0, 1 ) ) = 0.5
     }
-    
+
     SubShader
     {
         LOD 0
@@ -33,6 +39,10 @@ Shader "John/VegetationLeaves"
 
             HLSLPROGRAM
             #pragma target 3.0
+
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
+			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
+			#pragma multi_compile _ _SHADOWS_SOFT
 
             #include "Vegetation.hlsl"
 
