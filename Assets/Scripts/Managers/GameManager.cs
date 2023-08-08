@@ -22,6 +22,9 @@ public class GameManager : MonoBehaviour
 
     //场景管理
     public ScenceManager ScenceMgr { get; set; }
+
+    //环境管理
+    public EnvironmentManager EnvironmentMgr { get; set; }
     
     //音乐管理
     public MusicManager MusicMgr { get; set; }
@@ -39,6 +42,7 @@ public class GameManager : MonoBehaviour
 
         AssetMgr = gameObject.GetComponentInChildren<AssetManager>();
         DataMgr = gameObject.GetComponentInChildren<DataManager>();
+        EnvironmentMgr = gameObject.GetComponentInChildren<EnvironmentManager>();
         NetMgr = gameObject.GetComponentInChildren<NetManager>();
         UIMgr = gameObject.GetComponentInChildren<UIManager>();
         ScenceMgr = gameObject.GetComponentInChildren<ScenceManager>();
@@ -50,6 +54,7 @@ public class GameManager : MonoBehaviour
     {
         DataMgr.OnManagerInit();
         NetMgr.OnManagerInit();
+        EnvironmentMgr.OnManagerInit();
         AssetMgr.OnManagerInit();
         UIMgr.OnManagerInit();
         ScenceMgr.OnManagerInit();
@@ -63,6 +68,7 @@ public class GameManager : MonoBehaviour
 
         DataMgr.OnManagerUpdate(deltTime);
         NetMgr.OnManagerUpdate(deltTime);
+        EnvironmentMgr.OnManagerUpdate(deltTime);
         AssetMgr.OnManagerUpdate(deltTime);
         UIMgr.OnManagerUpdate(deltTime);
         ScenceMgr.OnManagerUpdate(deltTime);
@@ -74,6 +80,7 @@ public class GameManager : MonoBehaviour
     {
         DataMgr.OnManagerDestroy();
         NetMgr.OnManagerDestroy();
+        EnvironmentMgr.OnManagerDestroy();
         AssetMgr.OnManagerDestroy();
         UIMgr.OnManagerDestroy();
         ScenceMgr.OnManagerDestroy();

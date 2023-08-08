@@ -316,11 +316,11 @@ Shader "Custom/VegetationTrunk"
 				float _TessMaxDisp;
 			#endif
 			CBUFFER_END
-			float WindSpeed;
-			float WindPower;
-			float WindBurstsSpeed;
-			float WindBurstsScale;
-			float WindBurstsPower;
+			float _WindSpeed;
+			float _WindPower;
+			float _WindBurstsSpeed;
+			float _WindBurstsScale;
+			float _WindBurstsPower;
 			sampler2D _MainTex;
 			sampler2D _DetailAlbedoMap;
 			sampler2D _LayerMask;
@@ -371,14 +371,14 @@ Shader "Custom/VegetationTrunk"
 				UNITY_TRANSFER_INSTANCE_ID(v, o);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float3 ase_worldPos = mul(GetObjectToWorldMatrix(), v.vertex).xyz;
 				float2 appendResult153 = (float2(ase_worldPos.x , ase_worldPos.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = v.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -627,13 +627,13 @@ Shader "Custom/VegetationTrunk"
 				float4 temp_cast_3 = (_LayerThreshold).xxxx;
 				float4 BlendAlpha85 = pow( saturate( ( ( staticSwitch228 + (( _UseVertexColor )?( ( pow( clampResult105 , temp_cast_2 ) * clampResult105 ) ):( temp_cast_0 )) ) + _LayerPower ) ) , temp_cast_3 );
 				float4 lerpResult26 = lerp( ( _Color * tex2D( _MainTex, uv_MainTex ) ) , ( _2ndColor * tex2D( _DetailAlbedoMap, uv_DetailAlbedoMap ) ) , BlendAlpha85);
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float2 appendResult153 = (float2(WorldPosition.x , WorldPosition.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = IN.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -968,11 +968,11 @@ Shader "Custom/VegetationTrunk"
 				float _TessMaxDisp;
 			#endif
 			CBUFFER_END
-			float WindSpeed;
-			float WindPower;
-			float WindBurstsSpeed;
-			float WindBurstsScale;
-			float WindBurstsPower;
+			float _WindSpeed;
+			float _WindPower;
+			float _WindBurstsSpeed;
+			float _WindBurstsScale;
+			float _WindBurstsPower;
 
 
 			float3 mod2D289( float3 x ) { return x - floor( x * ( 1.0 / 289.0 ) ) * 289.0; }
@@ -1018,14 +1018,14 @@ Shader "Custom/VegetationTrunk"
 				UNITY_TRANSFER_INSTANCE_ID(v, o);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO( o );
 
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float3 ase_worldPos = mul(GetObjectToWorldMatrix(), v.vertex).xyz;
 				float2 appendResult153 = (float2(ase_worldPos.x , ase_worldPos.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = v.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -1323,11 +1323,11 @@ Shader "Custom/VegetationTrunk"
 				float _TessMaxDisp;
 			#endif
 			CBUFFER_END
-			float WindSpeed;
-			float WindPower;
-			float WindBurstsSpeed;
-			float WindBurstsScale;
-			float WindBurstsPower;
+			float _WindSpeed;
+			float _WindPower;
+			float _WindBurstsSpeed;
+			float _WindBurstsScale;
+			float _WindBurstsPower;
 
 
 			float3 mod2D289( float3 x ) { return x - floor( x * ( 1.0 / 289.0 ) ) * 289.0; }
@@ -1371,14 +1371,14 @@ Shader "Custom/VegetationTrunk"
 				UNITY_TRANSFER_INSTANCE_ID(v, o);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float3 ase_worldPos = mul(GetObjectToWorldMatrix(), v.vertex).xyz;
 				float2 appendResult153 = (float2(ase_worldPos.x , ase_worldPos.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = v.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -1678,11 +1678,11 @@ Shader "Custom/VegetationTrunk"
 				float _TessMaxDisp;
 			#endif
 			CBUFFER_END
-			float WindSpeed;
-			float WindPower;
-			float WindBurstsSpeed;
-			float WindBurstsScale;
-			float WindBurstsPower;
+			float _WindSpeed;
+			float _WindPower;
+			float _WindBurstsSpeed;
+			float _WindBurstsScale;
+			float _WindBurstsPower;
 			sampler2D _MainTex;
 			sampler2D _DetailAlbedoMap;
 			sampler2D _LayerMask;
@@ -1730,14 +1730,14 @@ Shader "Custom/VegetationTrunk"
 				UNITY_TRANSFER_INSTANCE_ID(v, o);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float3 ase_worldPos = mul(GetObjectToWorldMatrix(), v.vertex).xyz;
 				float2 appendResult153 = (float2(ase_worldPos.x , ase_worldPos.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = v.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -1954,13 +1954,13 @@ Shader "Custom/VegetationTrunk"
 				float4 temp_cast_3 = (_LayerThreshold).xxxx;
 				float4 BlendAlpha85 = pow( saturate( ( ( staticSwitch228 + (( _UseVertexColor )?( ( pow( clampResult105 , temp_cast_2 ) * clampResult105 ) ):( temp_cast_0 )) ) + _LayerPower ) ) , temp_cast_3 );
 				float4 lerpResult26 = lerp( ( _Color * tex2D( _MainTex, uv_MainTex ) ) , ( _2ndColor * tex2D( _DetailAlbedoMap, uv_DetailAlbedoMap ) ) , BlendAlpha85);
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float2 appendResult153 = (float2(WorldPosition.x , WorldPosition.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = IN.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -2151,11 +2151,11 @@ Shader "Custom/VegetationTrunk"
 				float _TessMaxDisp;
 			#endif
 			CBUFFER_END
-			float WindSpeed;
-			float WindPower;
-			float WindBurstsSpeed;
-			float WindBurstsScale;
-			float WindBurstsPower;
+			float _WindSpeed;
+			float _WindPower;
+			float _WindBurstsSpeed;
+			float _WindBurstsScale;
+			float _WindBurstsPower;
 			sampler2D _MainTex;
 			sampler2D _DetailAlbedoMap;
 			sampler2D _LayerMask;
@@ -2203,14 +2203,14 @@ Shader "Custom/VegetationTrunk"
 				UNITY_TRANSFER_INSTANCE_ID( v, o );
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO( o );
 
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float3 ase_worldPos = mul(GetObjectToWorldMatrix(), v.vertex).xyz;
 				float2 appendResult153 = (float2(ase_worldPos.x , ase_worldPos.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = v.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -2424,13 +2424,13 @@ Shader "Custom/VegetationTrunk"
 				float4 temp_cast_3 = (_LayerThreshold).xxxx;
 				float4 BlendAlpha85 = pow( saturate( ( ( staticSwitch228 + (( _UseVertexColor )?( ( pow( clampResult105 , temp_cast_2 ) * clampResult105 ) ):( temp_cast_0 )) ) + _LayerPower ) ) , temp_cast_3 );
 				float4 lerpResult26 = lerp( ( _Color * tex2D( _MainTex, uv_MainTex ) ) , ( _2ndColor * tex2D( _DetailAlbedoMap, uv_DetailAlbedoMap ) ) , BlendAlpha85);
-				float temp_output_127_0 = ( _TimeParameters.x * WindSpeed );
-				float2 appendResult152 = (float2(WindBurstsSpeed , WindBurstsSpeed));
+				float temp_output_127_0 = ( _TimeParameters.x * _WindSpeed );
+				float2 appendResult152 = (float2(_WindBurstsSpeed , _WindBurstsSpeed));
 				float2 appendResult153 = (float2(WorldPosition.x , WorldPosition.z));
 				float2 panner150 = ( 1.0 * _Time.y * appendResult152 + appendResult153);
-				float simplePerlin2D240 = snoise( panner150*( WindBurstsScale / 100.0 ) );
+				float simplePerlin2D240 = snoise( panner150*( _WindBurstsScale / 100.0 ) );
 				simplePerlin2D240 = simplePerlin2D240*0.5 + 0.5;
-				float temp_output_148_0 = ( WindPower * ( simplePerlin2D240 * WindBurstsPower ) );
+				float temp_output_148_0 = ( _WindPower * ( simplePerlin2D240 * _WindBurstsPower ) );
 				#if defined(_BASEWINDCHANNEL_R)
 				float staticSwitch202 = IN.ase_color.r;
 				#elif defined(_BASEWINDCHANNEL_G)
@@ -2509,7 +2509,7 @@ Node;AmplifyShaderEditor.StaticSwitch;204;-2912,2528;Inherit;False;Property;_Lay
 Node;AmplifyShaderEditor.CommentaryNode;159;-3328,1152;Inherit;False;3645.007;1018.856;;36;163;162;161;183;124;120;123;122;177;125;129;115;117;133;116;131;114;148;134;127;121;132;119;126;157;128;158;155;150;152;156;153;154;149;206;240;Wind;1,1,1,1;0;0
 Node;AmplifyShaderEditor.CommentaryNode;160;-3328,256;Inherit;False;2925.065;756.1433;;22;35;16;17;25;24;22;73;72;93;110;113;109;112;105;69;141;37;14;85;207;227;228;Blend Alpha;1,1,1,1;0;0
 Node;AmplifyShaderEditor.RegisterLocalVarNode;205;-2624,2528;Inherit;False;DepositLayerColor;-1;True;1;0;FLOAT;0;False;1;FLOAT;0
-Node;AmplifyShaderEditor.RangedFloatNode;149;-3280,1728;Inherit;False;Global;WindBurstsSpeed;Wind Bursts Speed;23;0;Create;True;0;0;0;False;1;Space(10);False;50;5;0;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.RangedFloatNode;149;-3280,1728;Inherit;False;Global;_WindBurstsSpeed;Wind Bursts Speed;23;0;Create;True;0;0;0;False;1;Space(10);False;50;5;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.WorldPosInputsNode;154;-3248,1552;Inherit;False;0;4;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3
 Node;AmplifyShaderEditor.RangedFloatNode;110;-3296,576;Inherit;False;Property;_LayerPosition;Layer Position;23;0;Create;True;0;0;0;False;0;False;0;5;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.GetLocalVarNode;207;-3296,448;Inherit;False;205;DepositLayerColor;1;0;OBJECT;;False;1;FLOAT;0
@@ -2517,7 +2517,7 @@ Node;AmplifyShaderEditor.StaticSwitch;202;-2912,2688;Inherit;False;Property;_Bas
 Node;AmplifyShaderEditor.RangedFloatNode;113;-3296,704;Inherit;False;Property;_LayerContrast;Layer Contrast;24;0;Create;True;0;0;0;False;0;False;0;1;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.PowerNode;109;-3072,448;Inherit;True;True;2;0;FLOAT;0;False;1;FLOAT;1;False;1;FLOAT;0
 Node;AmplifyShaderEditor.DynamicAppendNode;152;-3056,1728;Inherit;False;FLOAT2;4;0;FLOAT;0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT;0;False;1;FLOAT2;0
-Node;AmplifyShaderEditor.RangedFloatNode;156;-3072,1856;Inherit;False;Global;WindBurstsScale;Wind Bursts Scale;24;0;Create;True;0;0;0;False;0;False;1;1;0;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.RangedFloatNode;156;-3072,1856;Inherit;False;Global;_WindBurstsScale;Wind Bursts Scale;24;0;Create;True;0;0;0;False;0;False;1;1;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.DynamicAppendNode;153;-3056,1584;Inherit;False;FLOAT2;4;0;FLOAT;0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT;0;False;1;FLOAT2;0
 Node;AmplifyShaderEditor.PannerNode;150;-2880,1664;Inherit;False;3;0;FLOAT2;0,0;False;2;FLOAT2;0,0;False;1;FLOAT;1;False;1;FLOAT2;0
 Node;AmplifyShaderEditor.RegisterLocalVarNode;203;-2624,2688;Inherit;False;BaseWindColor;-1;True;1;0;FLOAT;0;False;1;FLOAT;0
@@ -2525,7 +2525,7 @@ Node;AmplifyShaderEditor.SimpleDivideOpNode;155;-2832,1856;Inherit;False;2;0;FLO
 Node;AmplifyShaderEditor.RangedFloatNode;22;-2816,352;Float;False;Property;_LayerPower;Layer Power;21;0;Create;True;0;0;0;False;0;False;0.5;0.25;0;1;0;1;FLOAT;0
 Node;AmplifyShaderEditor.CommentaryNode;185;-3328,-768;Inherit;False;2150;847;;13;64;9;137;8;3;86;81;78;87;75;13;76;184;Normals;1,1,1,1;0;0
 Node;AmplifyShaderEditor.SimpleContrastOpNode;112;-2816,512;Inherit;False;2;1;COLOR;0,0,0,0;False;0;FLOAT;0;False;1;COLOR;0
-Node;AmplifyShaderEditor.RangedFloatNode;158;-2608,1920;Inherit;False;Global;WindBurstsPower;Wind Bursts Power;25;0;Create;True;0;0;0;False;0;False;10;2;0;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.RangedFloatNode;158;-2608,1920;Inherit;False;Global;_WindBurstsPower;Wind Bursts Power;25;0;Create;True;0;0;0;False;0;False;10;2;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.ClampOpNode;105;-2592,656;Inherit;False;3;0;COLOR;0,0,0,0;False;1;COLOR;0,0,0,0;False;2;COLOR;1,1,1,0;False;1;COLOR;0
 Node;AmplifyShaderEditor.OneMinusNode;73;-2528,320;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.NoiseGeneratorNode;240;-2560,1664;Inherit;False;Simplex2D;True;False;2;0;FLOAT2;0,0;False;1;FLOAT;1;False;1;FLOAT;0
@@ -2533,9 +2533,9 @@ Node;AmplifyShaderEditor.RangedFloatNode;9;-3280,-96;Inherit;False;Property;_2nd
 Node;AmplifyShaderEditor.TexturePropertyNode;64;-3280,-304;Inherit;True;Property;_DetailNormalMap;Normal;10;0;Create;False;0;0;0;False;0;False;None;9302f85d940c1e24abf248a813b1ef87;True;bump;Auto;Texture2D;-1;0;2;SAMPLER2D;0;SAMPLERSTATE;1
 Node;AmplifyShaderEditor.GetLocalVarNode;206;-1920,1824;Inherit;False;203;BaseWindColor;1;0;OBJECT;;False;1;FLOAT;0
 Node;AmplifyShaderEditor.TexturePropertyNode;69;-2944,800;Inherit;True;Property;_LayerMask;Layer Mask (R);17;0;Create;False;0;0;0;False;0;False;None;e1f9e4b4f78e10041804ffee938870e2;False;white;Auto;Texture2D;-1;0;2;SAMPLER2D;0;SAMPLERSTATE;1
-Node;AmplifyShaderEditor.RangedFloatNode;126;-2496,1456;Inherit;False;Global;WindSpeed;Wind Speed;21;0;Create;True;0;0;0;False;1;Space(10);False;1;1;0;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.RangedFloatNode;126;-2496,1456;Inherit;False;Global;_WindSpeed;Wind Speed;21;0;Create;True;0;0;0;False;1;Space(10);False;1;1;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.OneMinusNode;119;-1648,1824;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0
-Node;AmplifyShaderEditor.RangedFloatNode;128;-1984,1328;Inherit;False;Global;WindPower;Wind Power;22;0;Create;True;0;0;0;False;0;False;0.01;1;0;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.RangedFloatNode;128;-1984,1328;Inherit;False;Global;_WindPower;Wind Power;22;0;Create;True;0;0;0;False;0;False;0.01;1;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.SimpleTimeNode;121;-2496,1328;Inherit;False;1;0;FLOAT;1;False;1;FLOAT;0
 Node;AmplifyShaderEditor.PowerNode;72;-2400,480;Inherit;True;False;2;0;COLOR;0,0,0,0;False;1;FLOAT;1;False;1;COLOR;0
 Node;AmplifyShaderEditor.SimpleMultiplyOpNode;157;-2304,1792;Inherit;True;2;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0

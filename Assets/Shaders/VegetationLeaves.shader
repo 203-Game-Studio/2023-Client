@@ -24,6 +24,11 @@ Shader "John/VegetationLeaves"
 		_TransDirect("Direct", Range( 0, 1 ) ) = 0.9
 		_TransAmbient("Ambient", Range( 0, 1 ) ) = 0.1
 		_TransShadow("Shadow", Range( 0, 1 ) ) = 0.5
+
+        _WindMultiplier("BaseWind Multiplier", Float) = 0
+		_MicroWindMultiplier("MicroWind Multiplier", Float) = 1
+		_WindTrunkPosition("Wind Trunk Position", Float) = 0
+		_WindTrunkContrast("Wind Trunk Contrast", Float) = 10
     }
 
     SubShader
