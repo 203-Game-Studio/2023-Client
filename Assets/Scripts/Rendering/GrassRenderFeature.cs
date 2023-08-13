@@ -29,7 +29,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
                 cmd.Clear();
                 var index = 0;
                 //获取所有草块 逐个调用DrawMeshInstancedProcedural
-                foreach(var grassTerrian in GrassTerrian.actives){
+                foreach(var grassTerrian in Grass.actives){
                     if(!grassTerrian || !grassTerrian.material){
                         continue;
                     }
