@@ -40,7 +40,6 @@ CBUFFER_START(UnityPerMaterial)
 	float  _ColorVariationPower;
 	float  _NoiseScale;
 
-	float  _Scattering;
 	float  _Cutoff;
     float  _TransStrength;
 	float  _TransNormal;
@@ -182,7 +181,7 @@ half4 LitPassFragment(LitVaryings input) : SV_Target
 	ditherVal = step(ditherVal, ditherResult);
 
     //clip
-    clip(ditherVal - 0.25);
+    clip(ditherVal - _Cutoff);
 
     float3 normalWS = normalize(input.normalWS);
 
@@ -228,7 +227,7 @@ half4 LitPassFragment(LitVaryings input) : SV_Target
     mainAtten = lerp(mainAtten, mainAtten * mainLight.shadowAttenuation, _TransShadow);
     half3 mainLightDir = mainLight.direction + normalWS * _TransNormal;
     half mainLightVdotL = pow(saturate(dot(viewDirectionWS, -mainLightDir)), _TransScattering);
-    half3 mainLightTranslucency = mainAtten * (mainLightVdotL * _TransDirect + inputData.bakedGI * _TransAmbient) * _Scattering.xxx;
+    half3 mainLightTranslucency = mainAtten * (mainLightVdotL * _TransDirect + inputData.bakedGI * _TransAmbient);
     color.rgb += albedo * mainLightTranslucency * _TransStrength;
 
     return color;

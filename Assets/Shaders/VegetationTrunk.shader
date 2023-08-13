@@ -8,7 +8,7 @@ Shader "John/VegetationTrunk"
 		_BumpMap("Normal", 2D) = "bump" {}
 		_NormalStrength("Normal Strength", Range( 0 , 1)) = 1
 
-        _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+        _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.25
         _HidePower("Hide Power", Float) = 2.5
 
         _WindMultiplier("BaseWind Multiplier", Float) = 0

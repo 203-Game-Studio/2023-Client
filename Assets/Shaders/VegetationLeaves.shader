@@ -4,7 +4,7 @@ Shader "John/VegetationLeaves"
     {
         [MainTexture] _BaseMap("Albedo", 2D) = "white" {}
         [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
-        _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+        _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.25
         _HidePower("Hide Power", Float) = 2.5
 
         _GradientColor("Gradient Color", Color) = (1,1,1,0)
@@ -15,8 +15,6 @@ Shader "John/VegetationLeaves"
 		_NoiseScale("Noise Scale", Float) = 0.5
         _ColorVariation("Color Variation", Color) = (1,0,0,0)
 		_ColorVariationPower("Color Variation Power", Range( 0 , 1)) = 1
-
-		_Scattering("Scattering", Float) = 1
 
         _TransStrength("Strength", Range( 0, 50 ) ) = 1
 		_TransNormal("Normal Distortion", Range( 0, 1 ) ) = 0.5
