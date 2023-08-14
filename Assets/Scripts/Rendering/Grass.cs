@@ -28,6 +28,8 @@ public class Grass : MonoBehaviour
 
     [SerializeField]
     private int _size = 10;
+    [SerializeField]
+    private bool IsPlane = false;
 
     [ContextMenu("RebuildMesh")]
     private void RebuildMesh(){
@@ -44,7 +46,7 @@ public class Grass : MonoBehaviour
     }
 
     private void Awake() {
-        this.RebuildMesh();
+        if(IsPlane) this.RebuildMesh();
         _seed = System.Guid.NewGuid().GetHashCode();
     }
     void OnEnable(){

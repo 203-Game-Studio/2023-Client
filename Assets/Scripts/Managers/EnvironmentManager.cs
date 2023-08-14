@@ -24,12 +24,19 @@ public class EnvironmentManager : MonoBehaviour, IManager
     public float microSpeed = 1f;
     public float microFrequency = 3f;
 
+    [Header("风向")]
+    [Range(0, 360)]
+    public int windAngle = 45;
+
     public void OnManagerInit(){
         //初始化风相关参数
         OnWindChanged();
     }
 
-    public void OnManagerUpdate(float deltTime){}
+    public void OnManagerUpdate(float deltTime){
+        //TODO:现在方便debug用，后面不能扔update里做，得整成事件触发
+        OnWindChanged();
+    }
 
     public void OnManagerDestroy(){ }
 
@@ -43,5 +50,11 @@ public class EnvironmentManager : MonoBehaviour, IManager
         Shader.SetGlobalFloat("_MicroPower",        microPower);
         Shader.SetGlobalFloat("_MicroSpeed",        microSpeed);
         Shader.SetGlobalFloat("_MicroFrequency",    microFrequency);
+
+        //拿角度算方向
+        float x = Mathf.Cos(windAngle*3.14159265359f/180);
+        float y = Mathf.Sin(windAngle*3.14159265359f/180);
+        Vector4 dir = new(x,0,-y,0);
+        Shader.SetGlobalVector("_Wind",             dir);
     }
 }
