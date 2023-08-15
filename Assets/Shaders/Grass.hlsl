@@ -49,6 +49,9 @@ float   _MicroFrequency;
 float   _MicroSpeed;
 float   _MicroPower;
 
+float _GrassBendingPositionsNum;
+float4 _GrassBendingPositions[8];
+
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
 
@@ -61,21 +64,6 @@ SAMPLER(sampler_BaseMap);
 #endif
 
 void setup(){}
-
-float3 ApplyWind(float3 positionWS, float3 grassUpWS, float3 windDir, float windStrength, 
-    float vertexLocalHeight,  int instanceID)
-{
-    //计算草弯曲角度,0-90
-    float rad = windStrength * PI * 0.9 / 2;
-    //得到wind与grassUpWS的正交向量
-    windDir = normalize(windDir - dot(windDir,grassUpWS) * grassUpWS);
-    float x, y;  
-    //x为单位球在wind方向，y为grassUp方向
-    sincos(rad, x, y);
-    float3 windedPos = x * windDir + y * grassUpWS;
-
-    return positionWS + (windedPos - grassUpWS) * vertexLocalHeight;
-}
 
 float3 mod2D289(float3 x) 
 { 
@@ -116,6 +104,39 @@ float snoise(float2 v)
 	return 130.0 * dot(m, g);
 }
 
+float3 CalculateBendingFloat(float3 WorldPosition, float MaxDistance, float Falloff, float PushAwayStrength, float PushDownStrength/*,
+    out float3 Offset, out float WindMultiplier*/) {
+    float3 offset = 0;
+    //WindMultiplier = 1;
+    for (int i = 0; i < _GrassBendingPositionsNum; i++) {
+        float3 objectPositionWS = _GrassBendingPositions[i].xyz;
+        float3 distanceVector = WorldPosition - objectPositionWS;
+        float distance = length(distanceVector);
+        float strength = 1 - pow(saturate(distance / MaxDistance), Falloff);
+        float3 xzDistance = distanceVector;
+        xzDistance.y = 0;
+        float3 pushAwayOffset = normalize(xzDistance) * PushAwayStrength * strength;
+        float3 squishOffset = float3(0, -1, 0) * PushDownStrength * strength;
+        offset += pushAwayOffset + squishOffset;
+        //WindMultiplier = min(WindMultiplier, 1 - strength);
+    }
+    return offset;
+}
+
+float3 ApplyForce(float3 positionWS, float3 grassUpWS, float3 forceDir, float strength, float vertexLocalHeight)
+{
+    //计算草弯曲角度,0-90
+    float rad = strength * PI * 0.9 / 2;
+    //得到force与grassUpWS的正交向量
+    forceDir = normalize(forceDir - dot(forceDir,grassUpWS) * grassUpWS);
+    float x, y;  
+    //x为单位球在wind方向，y为grassUp方向
+    sincos(rad, x, y);
+    float3 windedPos = x * forceDir + y * grassUpWS;
+
+    return positionWS + (windedPos - grassUpWS) * vertexLocalHeight;
+}
+
 Varyings LitPassVertex(Attributes input)
 {
     Varyings output;
@@ -139,12 +160,21 @@ Varyings LitPassVertex(Attributes input)
     //微风
     float prelinNoiseVal = snoise(_Time.y * _MicroSpeed.xx + positionWS.xz) * 0.8;
     prelinNoiseVal = prelinNoiseVal * 0.5 + 0.5;
-    float3 microWindFactor = clamp(sin((_MicroFrequency * (positionWS + prelinNoiseVal))), float3(-1,-1,-1), float3(1,1,1));
-    float3 microWind = microWindFactor * input.normalOS * _MicroPower * input.uv.y;
+    //计算草风吹后的新位置 噪声乘个0.7减弱下
+    positionWS.xyz = ApplyForce(positionWS.xyz, grassUpDir, normalize(_Wind.xyz), prelinNoiseVal*0.7, input.positionOS.y);
 
-    //计算草风吹后的新位置
-    positionWS.xyz = ApplyWind(positionWS.xyz, grassUpDir, normalize(_Wind.xyz),
-        prelinNoiseVal, input.positionOS.y, input.instanceID);
+    float3 offset = 0;
+    float strength = 0;
+    for (int i = 0; i < _GrassBendingPositionsNum; i++) {
+        float3 objectPositionWS = _GrassBendingPositions[i].xyz;
+        float3 distanceVector = positionWS - objectPositionWS;
+        float distance = length(distanceVector);
+        strength += 1 - pow(saturate(distance / 1), 2);
+        distanceVector.y = 0;
+        offset += distanceVector;
+    }
+    //计算踩踏草的力
+    positionWS.xyz = ApplyForce(positionWS.xyz, grassUpDir, normalize(offset), strength, input.positionOS.y);
     
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
