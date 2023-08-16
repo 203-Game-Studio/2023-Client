@@ -16,6 +16,8 @@ Shader "John/Grass"
 		_TransScattering("Scattering", Range( 1, 50 ) ) = 2
 		_TransDirect("Direct", Range( 0, 1 ) ) = 0.9
 		_TransShadow("Shadow", Range( 0, 1 ) ) = 0.5
+
+        _GrassBendingMap("草受力图", 2D) = "white" {}
     }
 
     SubShader

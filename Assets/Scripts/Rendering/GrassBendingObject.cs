@@ -11,14 +11,14 @@ public class GrassBendingObject : MonoBehaviour{
     }
 
     private void OnEnable() {
-        if(TryGetFeature(out var feature)) {
+        /*if(TryGetFeature(out var feature)) {
             feature.AddTrackedTransform(transform);
-        }
+        }*/
     }
 
     private void OnDisable() {
-        if(TryGetFeature(out var feature)) {
+        /*if(TryGetFeature(out var feature)) {
             feature.RemoveTrackedTransform(transform);
-        }
+        }*/
     }
 }
