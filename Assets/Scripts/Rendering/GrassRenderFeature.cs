@@ -24,7 +24,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
             //在RT相机上不渲染
-            if(renderingData.cameraData.camera.CompareTag("RTCamera")) return;
+            //if(renderingData.cameraData.camera.CompareTag("RTCamera")) return;
             var cmd = CommandBufferPool.Get(bufferName);
             try{
                 cmd.Clear();
