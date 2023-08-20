@@ -14,8 +14,6 @@ public class Grass : MonoBehaviour
     [SerializeField]
     private Material _material;
     [SerializeField]
-    private Vector2 _grassQuadSize = new Vector2(0.1f,0.6f);
-    [SerializeField]
     private int _grassCountPerMeter = 100;
     public Material material{
         get{
@@ -106,8 +104,7 @@ public class Grass : MonoBehaviour
             var terrianMesh = filter.sharedMesh;
             var matrix = transform.localToWorldMatrix;
             var grassIndex = 0;
-            List<GrassInfo> grassInfos = new List<GrassInfo>();
-            var maxGrassCount = 10000;
+            List<Matrix4x4> mats = new List<Matrix4x4>();
             Random.InitState(_seed);
             var indices = terrianMesh.triangles;
             var vertices = terrianMesh.vertices;
@@ -131,37 +128,23 @@ public class Grass : MonoBehaviour
                     var positionInTerrian = GrassUtil.RandomPointInsideTriangle(v1,v2,v3);
                     float rot = Random.Range(0,180);
                     var localToTerrian = Matrix4x4.TRS(positionInTerrian,  upToNormal * Quaternion.Euler(0,rot,0) ,Vector3.one);
-                    Vector2 texScale = Vector2.one;
-                    Vector2 texOffset = Vector2.zero;
-                    Vector4 texParams = new Vector4(texScale.x,texScale.y,texOffset.x,texOffset.y);
                     
-                    var grassInfo = new GrassInfo(){
-                        localToTerrian = localToTerrian,
-                        texParams = texParams
-                    };
-                    grassInfos.Add(grassInfo);
+                    mats.Add(transform.localToWorldMatrix * localToTerrian);
                     grassIndex ++;
-                    if(grassIndex >= maxGrassCount){
-                        break;
-                    }
-                }
-                if(grassIndex >= maxGrassCount){
-                    break;
                 }
             }
            
             _grassCount = grassIndex;
-            _grassBuffer = new ComputeBuffer(_grassCount,64 + 16);
-            _grassBuffer.SetData(grassInfos);
+            _grassBuffer = new ComputeBuffer(_grassCount,64);
+            _grassBuffer.SetData(mats);
             return _grassBuffer;
         }
     }
     private MaterialPropertyBlock _materialBlock;
     
+    public static readonly int matsID = Shader.PropertyToID("_LocalToWorldMats");
     public void UpdateMaterialProperties(){
-        materialPropertyBlock.SetMatrix(ShaderProperties.TerrianLocalToWorld,transform.localToWorldMatrix);
-        materialPropertyBlock.SetBuffer(ShaderProperties.GrassInfos,grassBuffer);
-        materialPropertyBlock.SetVector(ShaderProperties.GrassQuadSize,_grassQuadSize);
+        materialPropertyBlock.SetBuffer(matsID, grassBuffer);
     }
     public MaterialPropertyBlock materialPropertyBlock{
         get{
@@ -170,14 +153,5 @@ public class Grass : MonoBehaviour
             }
             return _materialBlock;
         }
-    }
-    public struct GrassInfo{
-        public Matrix4x4 localToTerrian;
-        public Vector4 texParams;
-    }
-    private class ShaderProperties{
-        public static readonly int TerrianLocalToWorld = Shader.PropertyToID("_TerrianLocalToWorld");
-        public static readonly int GrassInfos = Shader.PropertyToID("_GrassInfos");
-        public static readonly int GrassQuadSize = Shader.PropertyToID("_GrassQuadSize");
     }
 }

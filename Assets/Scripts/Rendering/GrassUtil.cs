@@ -6,8 +6,8 @@ public class GrassUtil
     private static Mesh _grassMesh;
     public static Mesh CreateGrassMesh(){
         var grassMesh = new Mesh { name = "Grass Quad" };
-        float width = 1f;
-        float height = 1f;
+        float width = 0.5f;
+        float height = 0.5f;
         float halfWidth = width/2;
         grassMesh.SetVertices(new List<Vector3>
         {

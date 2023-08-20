@@ -35,7 +35,6 @@ CBUFFER_START(UnityPerMaterial)
     float   _Roughness;
 
     float2  _GrassQuadSize;//这个修改进compute buffer里
-    float4x4 _TerrianLocalToWorld;//这个后面得干掉，改成传世界空间位置
 
     float4  _ScatteringColor;
     float   _TransStrength;
@@ -52,13 +51,7 @@ float   _MicroPower;
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
 
-#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-    struct GrassInfo{
-        float4x4 localToTerrian;
-        float4 texParams;
-    };
-    StructuredBuffer<GrassInfo> _GrassInfos;
-#endif
+StructuredBuffer<float4x4> _LocalToWorldMats;
 
 void setup(){}
 
@@ -118,22 +111,15 @@ float3 ApplyForce(float3 positionWS, float3 grassUpWS, float3 forceDir, float st
 Varyings LitPassVertex(Attributes input)
 {
     Varyings output;
-    input.positionOS.xy = input.positionOS.xy * _GrassQuadSize;
 
     float3 grassUpDir = float3(0,1,0);
 
-    #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-        //将顶点和法线从草quad本地空间转换到Terrian本地空间
-        GrassInfo grassInfo = _GrassInfos[input.instanceID];
-        input.positionOS = mul(grassInfo.localToTerrian, input.positionOS);
-        input.normalOS = mul(grassInfo.localToTerrian, float4(input.normalOS, 0)).xyz;
-        grassUpDir = mul(grassInfo.localToTerrian, float4(grassUpDir,0)).xyz;
-        input.uv = input.uv * grassInfo.texParams.xy + grassInfo.texParams.zw;
-
-    #endif
-    float4 positionWS = mul(_TerrianLocalToWorld, input.positionOS);
+    //将顶点和法线从草quad本地空间转换到Terrian本地空间
+    float4x4 localToWorldMat = _LocalToWorldMats[input.instanceID];
+    float4 positionWS = mul(localToWorldMat, input.positionOS);
     positionWS /= positionWS.w;
-    grassUpDir = normalize(mul(_TerrianLocalToWorld,float4(grassUpDir,0)));
+    input.normalOS = mul(localToWorldMat, float4(input.normalOS, 0)).xyz;
+    grassUpDir = normalize(mul(localToWorldMat, float4(grassUpDir,0)).xyz);
 
     //微风
     float prelinNoiseVal = snoise(_Time.y * _MicroSpeed.xx + positionWS.xz) * 0.8;
