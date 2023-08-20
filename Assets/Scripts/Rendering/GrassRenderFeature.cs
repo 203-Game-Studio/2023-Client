@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 public class GrassRenderFeature : ScriptableRendererFeature
 {
     private GrassRenderPass pass = null;
+    public ComputeShader compute;
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
@@ -16,18 +16,11 @@ public class GrassRenderFeature : ScriptableRendererFeature
     
     public override void Create()
     {
-        pass ??= new();
+        pass ??= new(compute);
     }
 
     public class GrassRenderPass : ScriptableRenderPass
     {
-        public int instanceCount = 100000;
-        public Mesh instanceMesh;
-        public Material instanceMaterial;
-        public int subMeshIndex = 0;
-
-        int cachedInstanceCount = -1;
-        int cachedSubMeshIndex = -1;
         ComputeBuffer argsBuffer;
         uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
 
@@ -37,17 +30,17 @@ public class GrassRenderFeature : ScriptableRendererFeature
         int kernel;
         Camera mainCamera;
 
-        public GrassRenderPass(){
+        public GrassRenderPass(ComputeShader compute){
+            this.compute = compute;
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
-            /*kernel = compute.FindKernel("ViewPortCulling");
+            kernel = compute.FindKernel("ViewPortCulling");
             mainCamera = Camera.main;
-            cullResult = new ComputeBuffer(instanceCount, sizeof(float) * 16, ComputeBufferType.Append);
             argsBuffer = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
 
-            UpdateBuffers();*/
+            /*UpdateBuffers();*/
         }
 
-        void UpdateBuffers() {
+        /*void UpdateBuffers() {
             if(localToWorldMatrixBuffer != null)
                 localToWorldMatrixBuffer.Release();
 
@@ -72,31 +65,31 @@ public class GrassRenderFeature : ScriptableRendererFeature
                 args[0] = args[1] = args[2] = args[3] = 0;
             }
             argsBuffer.SetData(args);
-
-            cachedInstanceCount = instanceCount;
-            cachedSubMeshIndex = subMeshIndex;
-        }
+        }*/
 
         private const string bufferName = "GrassBuffer";
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
-            /*Vector4[] planes = CullTool.GetFrustumPlane(mainCamera);
-
-            compute.SetBuffer(kernel, "input", localToWorldMatrixBuffer);
-            cullResult.SetCounterValue(0);
-            compute.SetBuffer(kernel, "cullresult", cullResult);
-            compute.SetInt("instanceCount", instanceCount);
-            compute.SetVectorArray("planes", planes);
-
-            compute.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
-            instanceMaterial.SetBuffer("positionBuffer", cullResult);
-    
-            ComputeBuffer.CopyCount(cullResult, argsBuffer, sizeof(uint));*/
+            /**/
 
             //Graphics.DrawMeshInstancedIndirect(instanceMesh, subMeshIndex, instanceMaterial, new Bounds(Vector3.zero, new Vector3(200.0f, 200.0f, 200.0f)), argsBuffer);
 
             var cmd = CommandBufferPool.Get(bufferName);
             try{
+                //cullResult = new ComputeBuffer(instanceCount, sizeof(float) * 16, ComputeBufferType.Append);
+                /*Vector4[] planes = CullTool.GetFrustumPlane(mainCamera);
+
+                compute.SetBuffer(kernel, "input", localToWorldMatrixBuffer);
+                cullResult.SetCounterValue(0);
+                compute.SetBuffer(kernel, "cullresult", cullResult);
+                compute.SetInt("instanceCount", instanceCount);
+                compute.SetVectorArray("planes", planes);
+
+                compute.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
+                instanceMaterial.SetBuffer("positionBuffer", cullResult);
+        
+                ComputeBuffer.CopyCount(cullResult, argsBuffer, sizeof(uint));*/
+
                 cmd.Clear();
                 var index = 0;
                 //获取所有草块 逐个调用DrawMeshInstancedProcedural
