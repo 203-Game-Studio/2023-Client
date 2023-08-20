@@ -49,13 +49,8 @@ float   _MicroFrequency;
 float   _MicroSpeed;
 float   _MicroPower;
 
-float3  _GrassBendingPosition;
-
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
-
-sampler2D _GrassBendingMap;
-//SAMPLER(sampler_GrassBendingMap);
 
 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
     struct GrassInfo{
@@ -120,38 +115,6 @@ float3 ApplyForce(float3 positionWS, float3 grassUpWS, float3 forceDir, float st
     return positionWS + (windedPos - grassUpWS) * vertexLocalHeight;
 }
 
-bool IsInGrassBendingMap(float3 positionWS){
-    if(positionWS.x <= _GrassBendingPosition.x + 10 && positionWS.x >= _GrassBendingPosition.x - 10 &&
-        positionWS.y <= _GrassBendingPosition.z + 10 && positionWS.y >= _GrassBendingPosition.z - 10){
-        return true;
-    }
-    return false;
-}
-
-float4 GetGrassBendingUV(float3 positionWS){
-    float2 o = (positionWS.xz - float2(_GrassBendingPosition.x - 10, _GrassBendingPosition.z -10)) * 0.05;
-    return float4(o.xy, 0, 0); 
-}
-
-float3 RotateAroundAxis(float3 center, float3 original, float3 u, float angle)
-{
-    original -= center;
-    float C, S;
-    sincos(angle, S, C);
-    float t = 1 - C;
-    float m00 = t * u.x * u.x + C;
-    float m01 = t * u.x * u.y - S * u.z;
-    float m02 = t * u.x * u.z + S * u.y;
-    float m10 = t * u.x * u.y + S * u.z;
-    float m11 = t * u.y * u.y + C;
-    float m12 = t * u.y * u.z - S * u.x;
-    float m20 = t * u.x * u.z - S * u.y;
-    float m21 = t * u.y * u.z + S * u.x;
-    float m22 = t * u.z * u.z + C;
-    float3x3 finalMatrix = float3x3(m00, m01, m02, m10, m11, m12, m20, m21, m22);
-    return mul(finalMatrix, original) + center;
-}
-
 Varyings LitPassVertex(Attributes input)
 {
     Varyings output;
@@ -173,24 +136,10 @@ Varyings LitPassVertex(Attributes input)
     grassUpDir = normalize(mul(_TerrianLocalToWorld,float4(grassUpDir,0)));
 
     //微风
-   // float prelinNoiseVal = snoise(_Time.y * _MicroSpeed.xx + positionWS.xz) * 0.8;
-    //prelinNoiseVal = prelinNoiseVal * 0.5 + 0.5;
+    float prelinNoiseVal = snoise(_Time.y * _MicroSpeed.xx + positionWS.xz) * 0.8;
+    prelinNoiseVal = prelinNoiseVal * 0.5 + 0.5;
     //计算草风吹后的新位置 噪声乘个0.7减弱下
-    //positionWS.xyz = ApplyForce(positionWS.xyz, grassUpDir, normalize(_Wind.xyz), prelinNoiseVal*0.7, input.positionOS.y);
-    
-    //计算踩踏草的力
-    //todo 现在给的信息感觉是算不太对 后面改成世界法线试试 
-    if(IsInGrassBendingMap(positionWS)){
-        float3 forceDir = tex2Dlod(_GrassBendingMap,GetGrassBendingUV(positionWS)).rgb;
-        if (forceDir.z > 0)
-        {
-            half hRate = saturate(input.positionOS.y);
-            half angle = sin(hRate) * forceDir.z;
-            half3 localWindDir = half3(forceDir.x, 0, forceDir.y);
-            half3 axis = cross(localWindDir, half3(0, -1, 0));
-            positionWS.xyz = RotateAroundAxis(0, positionWS.xyz, normalize(axis), angle);
-        }
-    }
+    positionWS.xyz = ApplyForce(positionWS.xyz, grassUpDir, normalize(_Wind.xyz), prelinNoiseVal*0.7, input.positionOS.y);
     
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
