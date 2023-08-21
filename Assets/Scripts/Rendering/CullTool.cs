@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public static class CullTool
@@ -35,7 +33,6 @@ public static class CullTool
         Transform transform = camera.transform;
         Vector3 cameraPosition = transform.position;
         Vector3[] points = GetCameraFarClipPlanePoint(camera);
-        //˳ʱ��
         planes[0] = GetPlane(cameraPosition, points[0], points[2]);//left
         planes[1] = GetPlane(cameraPosition, points[3], points[1]);//right
         planes[2] = GetPlane(cameraPosition, points[1], points[0]);//bottom

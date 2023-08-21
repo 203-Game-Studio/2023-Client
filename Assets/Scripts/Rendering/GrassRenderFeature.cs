@@ -93,7 +93,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
                 cmd.Clear();
                 var index = 0;
                 //获取所有草块 逐个调用DrawMeshInstancedProcedural
-                foreach(var grassTerrian in Grass.actives){
+                /*foreach(var grassTerrian in Grass.actives){
                     if(!grassTerrian || !grassTerrian.material){
                         continue;
                     }
@@ -101,7 +101,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
                     cmd.DrawMeshInstancedProcedural(GrassUtil.unitMesh, 0, grassTerrian.material, 0,
                         grassTerrian.grassCount, grassTerrian.materialPropertyBlock);
                     ++index;
-                }
+                }*/
                 context.ExecuteCommandBuffer(cmd);
             }
             finally{

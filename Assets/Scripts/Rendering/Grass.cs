@@ -1,84 +1,137 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-[ExecuteInEditMode]
 public class Grass : MonoBehaviour
 {
-    private static HashSet<Grass> _actives = new HashSet<Grass>();
-    public static IReadOnlyCollection<Grass> actives{
+    private static Grass instance;
+    public static Grass Instance{
         get{
-            return _actives;
+            return instance;
         }
     }
+    public Material instanceMaterial;
     [SerializeField]
-    private Material _material;
-    [SerializeField]
-    private int _grassCount = 10000;
-    public Material material{
+    private int _instanceCount = 10000;
+    
+    public int instanceCount{
         get{
-            return _material;
+            return _instanceCount;
         }
     }
-    private ComputeBuffer _grassBuffer;
+
+    int cachedInstanceCount = -1;
+
+    ComputeBuffer argsBuffer;
+
+    uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
+
+    public ComputeShader compute;
+
+    ComputeBuffer localToWorldMatrixBuffer;
+
+    ComputeBuffer cullResult;
+
+    int kernel;
+
+    Camera mainCamera;
+
     private System.Random random = new System.Random();
 
-    [ContextMenu("ForceRebuildGrassInfoBuffer")]
-    private void ForceUpdateGrassBuffer(){
-        if(_grassBuffer != null){
-            _grassBuffer.Dispose();
-            _grassBuffer = null;
-        }
-        UpdateMaterialProperties();
+    private void Awake()
+    {
+        instance = this;
     }
 
-    void OnEnable(){
-        _actives.Add(this);
+    void Start() {
+        kernel = compute.FindKernel("ViewPortCulling");
+        mainCamera = Camera.main;
+        cullResult = new ComputeBuffer(instanceCount, sizeof(float) * 16, ComputeBufferType.Append);
+        argsBuffer = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+        UpdateBuffers();
     }
+
     void OnDisable(){
-        _actives.Remove(this);
-        if(_grassBuffer != null){
-            _grassBuffer.Dispose();
-            _grassBuffer = null;
-        }
-    }
-    public int grassCount{
-        get{
-            return _grassCount;
-        }
+        localToWorldMatrixBuffer?.Release();
+        localToWorldMatrixBuffer = null;
+
+        cullResult?.Release();
+        cullResult = null;
+
+        argsBuffer?.Release();
+        argsBuffer = null;
     }
 
     public float GetRandomNumber(float minimum, float maximum)
     { 
         return (float)random.NextDouble() * (maximum - minimum) + minimum;
     }
+
+    void UpdateBuffers() {
+        if(localToWorldMatrixBuffer != null)
+            localToWorldMatrixBuffer.Release();
+
+        localToWorldMatrixBuffer = new ComputeBuffer(instanceCount, 16 * sizeof(float));
+        List<Matrix4x4> mats = new List<Matrix4x4>();
+        for(int i = 0;i < instanceCount; ++i){
+            var upToNormal = Quaternion.FromToRotation(Vector3.up,Vector3.up);
+            var positionInTerrian = new Vector3(GetRandomNumber(-10,10),0,GetRandomNumber(-10,10));
+            float rot = Random.Range(0,180);
+            var localToTerrian = Matrix4x4.TRS(positionInTerrian,  upToNormal * Quaternion.Euler(0,rot,0) ,Vector3.one);
+            
+            mats.Add(transform.localToWorldMatrix * localToTerrian);
+        }
+        localToWorldMatrixBuffer.SetData(mats);
+
+        // Indirect args
+        if(GrassUtil.unitMesh != null) {
+            args[0] = (uint)GrassUtil.unitMesh.GetIndexCount(0);
+            args[2] = (uint)GrassUtil.unitMesh.GetIndexStart(0);
+            args[3] = (uint)GrassUtil.unitMesh.GetBaseVertex(0);
+        } else {
+            args[0] = args[1] = args[2] = args[3] = 0;
+        }
+        argsBuffer.SetData(args);
+
+        cachedInstanceCount = instanceCount;
+    }
+
+    void Update() {
+        if(cachedInstanceCount != instanceCount)
+            UpdateBuffers();
+
+        Vector4[] planes = CullTool.GetFrustumPlane(mainCamera);
+
+        compute.SetBuffer(kernel, "input", localToWorldMatrixBuffer);
+        cullResult.SetCounterValue(0);
+        compute.SetBuffer(kernel, "cullresult", cullResult);
+        compute.SetInt("instanceCount", instanceCount);
+        compute.SetVectorArray("planes", planes);
+        
+        compute.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
+        instanceMaterial.SetBuffer("_LocalToWorldMats", cullResult);
+
+        ComputeBuffer.CopyCount(cullResult, argsBuffer, sizeof(uint));
+
+        Graphics.DrawMeshInstancedIndirect(GrassUtil.unitMesh, 0, instanceMaterial, new Bounds(Vector3.zero, new Vector3(200.0f, 200.0f, 200.0f)), argsBuffer);
+    }
     
-    public ComputeBuffer grassBuffer{
+    public ComputeBuffer LocalToWorldMatrixBuffer{
         get{
-            if(_grassBuffer != null){
-                return _grassBuffer;
+            if(localToWorldMatrixBuffer != null){
+                return localToWorldMatrixBuffer;
             }
-            var matrix = transform.localToWorldMatrix;
-            List<Matrix4x4> mats = new List<Matrix4x4>();
-            for(int i = 0;i < _grassCount; ++i){
-                var upToNormal = Quaternion.FromToRotation(Vector3.up,Vector3.up);
-                var positionInTerrian = new Vector3(GetRandomNumber(-5,5),0,GetRandomNumber(-5,5));
-                float rot = Random.Range(0,180);
-                var localToTerrian = Matrix4x4.TRS(positionInTerrian,  upToNormal * Quaternion.Euler(0,rot,0) ,Vector3.one);
-                
-                mats.Add(transform.localToWorldMatrix * localToTerrian);
-            }
-           
-            _grassBuffer = new ComputeBuffer(_grassCount,64);
-            _grassBuffer.SetData(mats);
-            return _grassBuffer;
+            UpdateBuffers();
+            return localToWorldMatrixBuffer;
         }
     }
-    private MaterialPropertyBlock _materialBlock;
     
     public static readonly int matsID = Shader.PropertyToID("_LocalToWorldMats");
     public void UpdateMaterialProperties(){
-        materialPropertyBlock.SetBuffer(matsID, grassBuffer);
+        materialPropertyBlock.SetBuffer(matsID, LocalToWorldMatrixBuffer);
     }
+
+    private MaterialPropertyBlock _materialBlock;
+
     public MaterialPropertyBlock materialPropertyBlock{
         get{
             if(_materialBlock == null){
