@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public static class CullTool
+public static class CullUtil
 {
     public static Vector4 GetPlane(Vector3 normal, Vector3 point) {
         return new Vector4(normal.x, normal.y, normal.z, -Vector3.Dot(normal, point));

@@ -41,7 +41,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
             try{
                 cmd.Clear();
                 grassMaterial.SetBuffer("_LocalToWorldMats", Grass.Instance.CullResultBuffer);
-                cmd.DrawMeshInstancedProcedural(GrassUtil.unitMesh, 0, grassMaterial, 0, count);
+                cmd.DrawMeshInstancedProcedural(Grass.GrassMesh, 0, grassMaterial, 0, count);
                 context.ExecuteCommandBuffer(cmd);
             }
             finally{
