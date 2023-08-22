@@ -9,29 +9,29 @@ public class Grass : MonoBehaviour
             return instance;
         }
     }
-    public Material instanceMaterial;
+
+    //草数量
     [SerializeField]
-    private int _instanceCount = 10000;
-    
-    public int instanceCount{
+    private int instanceCount = 10000;
+    int cachedInstanceCount = -1;
+
+    //用于读取裁剪后的实例数量
+    ComputeBuffer countBuffer;
+    uint[] countBufferData = new uint[1] { 0 };
+    public int cullResultCount{
         get{
-            return _instanceCount;
+            return (int)countBufferData[0];
         }
     }
 
-    int cachedInstanceCount = -1;
-
-    ComputeBuffer argsBuffer;
-
-    uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
-
-    public ComputeShader compute;
-
-    ComputeBuffer localToWorldMatrixBuffer;
-
-    ComputeBuffer cullResult;
-
+    //用于视椎体剔除
+    public ComputeShader frustumCullingComputeShader;
     int kernel;
+
+    //矩阵buffer
+    ComputeBuffer localToWorldMatrixBuffer;
+    //裁剪后的矩阵buffer
+    ComputeBuffer cullResult;
 
     Camera mainCamera;
 
@@ -43,22 +43,11 @@ public class Grass : MonoBehaviour
     }
 
     void Start() {
-        kernel = compute.FindKernel("ViewPortCulling");
+        kernel = frustumCullingComputeShader.FindKernel("ViewPortCulling");
         mainCamera = Camera.main;
         cullResult = new ComputeBuffer(instanceCount, sizeof(float) * 16, ComputeBufferType.Append);
-        argsBuffer = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+        countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
         UpdateBuffers();
-    }
-
-    void OnDisable(){
-        localToWorldMatrixBuffer?.Release();
-        localToWorldMatrixBuffer = null;
-
-        cullResult?.Release();
-        cullResult = null;
-
-        argsBuffer?.Release();
-        argsBuffer = null;
     }
 
     public float GetRandomNumber(float minimum, float maximum)
@@ -66,6 +55,7 @@ public class Grass : MonoBehaviour
         return (float)random.NextDouble() * (maximum - minimum) + minimum;
     }
 
+    //更新矩阵buffer和数量buffer
     void UpdateBuffers() {
         if(localToWorldMatrixBuffer != null)
             localToWorldMatrixBuffer.Release();
@@ -82,62 +72,43 @@ public class Grass : MonoBehaviour
         }
         localToWorldMatrixBuffer.SetData(mats);
 
-        // Indirect args
-        if(GrassUtil.unitMesh != null) {
-            args[0] = (uint)GrassUtil.unitMesh.GetIndexCount(0);
-            args[2] = (uint)GrassUtil.unitMesh.GetIndexStart(0);
-            args[3] = (uint)GrassUtil.unitMesh.GetBaseVertex(0);
-        } else {
-            args[0] = args[1] = args[2] = args[3] = 0;
-        }
-        argsBuffer.SetData(args);
-
         cachedInstanceCount = instanceCount;
     }
 
     void Update() {
-        if(cachedInstanceCount != instanceCount)
-            UpdateBuffers();
+        if(cachedInstanceCount != instanceCount) UpdateBuffers();
 
+        //获取主相机视椎体6个平面
         Vector4[] planes = CullTool.GetFrustumPlane(mainCamera);
 
-        compute.SetBuffer(kernel, "input", localToWorldMatrixBuffer);
+        //执行视椎体剔除
+        frustumCullingComputeShader.SetVectorArray("planes", planes);
+        frustumCullingComputeShader.SetInt("instanceCount", instanceCount);
+        frustumCullingComputeShader.SetBuffer(kernel, "localToWorldMatrixBuffer", localToWorldMatrixBuffer);
         cullResult.SetCounterValue(0);
-        compute.SetBuffer(kernel, "cullresult", cullResult);
-        compute.SetInt("instanceCount", instanceCount);
-        compute.SetVectorArray("planes", planes);
-        
-        compute.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
-        instanceMaterial.SetBuffer("_LocalToWorldMats", cullResult);
+        frustumCullingComputeShader.SetBuffer(kernel, "cullResult", cullResult);
+        frustumCullingComputeShader.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
 
-        ComputeBuffer.CopyCount(cullResult, argsBuffer, sizeof(uint));
-
-        Graphics.DrawMeshInstancedIndirect(GrassUtil.unitMesh, 0, instanceMaterial, new Bounds(Vector3.zero, new Vector3(200.0f, 200.0f, 200.0f)), argsBuffer);
+        //获取裁剪后的实例数量
+        ComputeBuffer.CopyCount(cullResult, countBuffer, 0);
+        countBuffer.GetData(countBufferData);
     }
     
-    public ComputeBuffer LocalToWorldMatrixBuffer{
+    //获取裁剪后的矩阵Buffer
+    public ComputeBuffer CullResultBuffer{
         get{
-            if(localToWorldMatrixBuffer != null){
-                return localToWorldMatrixBuffer;
-            }
-            UpdateBuffers();
-            return localToWorldMatrixBuffer;
+            return cullResult;
         }
     }
-    
-    public static readonly int matsID = Shader.PropertyToID("_LocalToWorldMats");
-    public void UpdateMaterialProperties(){
-        materialPropertyBlock.SetBuffer(matsID, LocalToWorldMatrixBuffer);
-    }
 
-    private MaterialPropertyBlock _materialBlock;
+    void OnDisable(){
+        localToWorldMatrixBuffer?.Release();
+        localToWorldMatrixBuffer = null;
 
-    public MaterialPropertyBlock materialPropertyBlock{
-        get{
-            if(_materialBlock == null){
-                _materialBlock = new MaterialPropertyBlock();
-            }
-            return _materialBlock;
-        }
+        cullResult?.Release();
+        cullResult = null;
+
+        countBuffer?.Release();
+        countBuffer = null;
     }
 }

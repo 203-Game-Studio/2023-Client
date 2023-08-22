@@ -1,20 +1,13 @@
 #pragma kernel ViewPortCulling
 
 uint instanceCount;
-StructuredBuffer<float4x4> input;
+StructuredBuffer<float4x4> localToWorldMatrixBuffer;
 float4 planes[6];
-AppendStructuredBuffer<float4x4> cullresult;
-struct GrassInfo{
-    float4x4 localToTerrian;
-    float4 texParams;
-};
-StructuredBuffer<GrassInfo> _GrassInfos;
+AppendStructuredBuffer<float4x4> cullResult;
 
 bool IsOutsideThePlane(float4 plane, float3 pointPosition)
 {
-    if (dot(plane.xyz, pointPosition) + plane.w > 0)
-        return true;
-    return false;
+    return dot(plane.xyz, pointPosition) + plane.w > 0;
 }
 
 [numthreads(640, 1, 1)]
@@ -22,10 +15,11 @@ void ViewPortCulling(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= instanceCount)
         return;
-    float4x4 info = input[id.x];
+    float4x4 info = localToWorldMatrixBuffer[id.x];
 
-    float3 boundMin = float3(-1.5, 0, -1.5);
-    float3 boundMax = float3(1.5, 7, 1.5);
+    //TODO: 草碰撞盒，现在草默认是(0.5,0.5,0.5)大小，后续应该改成传进来
+    float3 boundMin = float3(-0.25, 0, -0.25);
+    float3 boundMax = float3(0.25, 0.5, 0.25);
     float4 boundVerts[8];//AABB8个顶点坐标
     boundVerts[0] = mul(info, float4(boundMin, 1));
     boundVerts[1] = mul(info, float4(boundMax, 1));
@@ -42,12 +36,9 @@ void ViewPortCulling(uint3 id : SV_DispatchThreadID)
         for (int j = 0; j < 8; j++)
         {
             float3 boundPosition = boundVerts[j].xyz;
-
-            if (!IsOutsideThePlane(planes[i], boundPosition))
-                break;
-            if (j == 7)
-                return;
+            if (!IsOutsideThePlane(planes[i], boundPosition)) break;
+            if (j == 7) return;
         }
     }
-    cullresult.Append(info);
+    cullResult.Append(info);
 }
