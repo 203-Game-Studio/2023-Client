@@ -25,7 +25,7 @@ public class Grass : MonoBehaviour
     }
 
     //用于视椎体剔除
-    public ComputeShader frustumCullingComputeShader;
+    public ComputeShader grassCullingComputeShader;
     int kernel;
 
     //矩阵buffer
@@ -43,7 +43,7 @@ public class Grass : MonoBehaviour
     }
 
     void Start() {
-        kernel = frustumCullingComputeShader.FindKernel("ViewPortCulling");
+        kernel = grassCullingComputeShader.FindKernel("GrassCulling");
         mainCamera = Camera.main;
         cullResult = new ComputeBuffer(instanceCount, sizeof(float) * 16, ComputeBufferType.Append);
         countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
@@ -77,17 +77,14 @@ public class Grass : MonoBehaviour
 
     void Update() {
         if(cachedInstanceCount != instanceCount) UpdateBuffers();
-
-        //获取主相机视椎体6个平面
-        Vector4[] planes = CullUtil.GetFrustumPlane(mainCamera);
-
-        //执行视椎体剔除
-        frustumCullingComputeShader.SetVectorArray("planes", planes);
-        frustumCullingComputeShader.SetInt("instanceCount", instanceCount);
-        frustumCullingComputeShader.SetBuffer(kernel, "localToWorldMatrixBuffer", localToWorldMatrixBuffer);
+        
+        grassCullingComputeShader.SetInt("instanceCount", instanceCount);
+        Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
+        grassCullingComputeShader.SetMatrix("vpMatrix", vpMatrix);
+        grassCullingComputeShader.SetBuffer(kernel, "localToWorldMatrixBuffer", localToWorldMatrixBuffer);
         cullResult.SetCounterValue(0);
-        frustumCullingComputeShader.SetBuffer(kernel, "cullResult", cullResult);
-        frustumCullingComputeShader.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
+        grassCullingComputeShader.SetBuffer(kernel, "cullResult", cullResult);
+        grassCullingComputeShader.Dispatch(kernel, 1 + (instanceCount / 640), 1, 1);
 
         //获取裁剪后的实例数量
         ComputeBuffer.CopyCount(cullResult, countBuffer, 0);

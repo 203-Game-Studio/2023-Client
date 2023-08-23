@@ -1,0 +1,45 @@
+#pragma kernel GrassCulling
+
+uint instanceCount;
+StructuredBuffer<float4x4> localToWorldMatrixBuffer;
+AppendStructuredBuffer<float4x4> cullResult;
+float4x4 vpMatrix;
+
+//TODO: 草碰撞盒，现在草默认是(0.5,0.5,0.5)大小，后续应该改成传进来
+static float3 boundMin = float3(-0.25, 0, -0.25);
+static float3 boundMax = float3(0.25, 0.5, 0.25);
+
+bool IsInClipSpace(float4 positionCS)
+{
+    return positionCS.x > -positionCS.w && positionCS.x < positionCS.w &&
+        positionCS.y > -positionCS.w && positionCS.y < positionCS.w &&
+        positionCS.z > 0 && positionCS.z < positionCS.w;
+}
+
+[numthreads(640, 1, 1)]
+void GrassCulling(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= instanceCount)
+        return;
+    float4x4 mMatrix = localToWorldMatrixBuffer[id.x];
+    float4x4 mvpMatrix = mul(vpMatrix, mMatrix);
+
+    float4 boundVerts[8];
+    boundVerts[0] = float4(boundMin, 1);
+    boundVerts[1] = float4(boundMax, 1);
+    boundVerts[2] = float4(boundMax.x, boundMax.y, boundMin.z, 1);
+    boundVerts[3] = float4(boundMax.x, boundMin.y, boundMax.z, 1);
+    boundVerts[4] = float4(boundMax.x, boundMin.y, boundMin.z, 1);
+    boundVerts[5] = float4(boundMin.x, boundMax.y, boundMax.z, 1);
+    boundVerts[6] = float4(boundMin.x, boundMax.y, boundMin.z, 1);
+    boundVerts[7] = float4(boundMin.x, boundMin.y, boundMax.z, 1);
+
+    bool isInClipSpace = false;
+    for (int i = 0; i < 8; i++)
+    {
+        float4 positionCS = mul(mvpMatrix, boundVerts[i]);
+        if (!isInClipSpace && IsInClipSpace(positionCS))
+            isInClipSpace = true;
+    }
+    if (isInClipSpace) cullResult.Append(mMatrix);
+}
