@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Rendering;
@@ -17,6 +18,8 @@ public class GrassRenderFeature : ScriptableRendererFeature
         public int grassCount = 10000;
         //裁剪shader
         public ComputeShader grassCullingComputeShader;
+        //深度图mipmap生成shader
+        //public Shader depthTextureShader;
     }
     public Settings settings;
 
@@ -26,7 +29,15 @@ public class GrassRenderFeature : ScriptableRendererFeature
             renderer.EnqueuePass(pass);
         }
     }
-    
+
+    public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
+    {
+        if (renderingData.cameraData.cameraType == CameraType.Game)
+        {
+            //pass.ConfigureInput(ScriptableRenderPassInput.Depth);
+        }
+    }
+
     public override void Create()
     {
         pass ??= new(settings);
@@ -55,17 +66,43 @@ public class GrassRenderFeature : ScriptableRendererFeature
 
         private const string bufferName = "GrassBuffer";
 
+        RenderTexture depthTexture;
+        int _depthTextureSize = 0;
+        public int depthTextureSize {
+            get {
+                if(_depthTextureSize == 0)
+                    _depthTextureSize = Mathf.NextPowerOfTwo(Mathf.Max(Screen.width, Screen.height));
+                return _depthTextureSize;
+            }
+        }
+        Material depthTextureMaterial;
+        const RenderTextureFormat depthTextureFormat = RenderTextureFormat.RHalf;
+        int depthTextureShaderID;
+
         public GrassRenderPass(Settings settings){
             Clear();
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
             this.settings = settings;
             grassCullingComputeShader = settings.grassCullingComputeShader;
 
+            depthTextureMaterial = new Material(Shader.Find("John/DepthTextureMipmap"));
+            depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
+            InitDepthTexture();
+
             kernel = grassCullingComputeShader.FindKernel("GrassCulling");
             mainCamera = Camera.main;
             cullResult = new ComputeBuffer(settings.grassCount, sizeof(float) * 16, ComputeBufferType.Append);
             countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
             UpdateBuffers();
+        }
+
+        void InitDepthTexture() {
+            if(depthTexture != null) return;
+            depthTexture = new RenderTexture(depthTextureSize, depthTextureSize, 0, depthTextureFormat);
+            depthTexture.autoGenerateMips = false;
+            depthTexture.useMipMap = true;
+            depthTexture.filterMode = FilterMode.Point;
+            depthTexture.Create();
         }
 
         public float GetRandomNumber(float minimum, float maximum)
@@ -83,7 +120,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
             for(int i = 0;i < settings.grassCount; ++i){
                 var upToNormal = Quaternion.FromToRotation(Vector3.up,Vector3.up);
                 var positionInTerrian = new Vector3(GetRandomNumber(-10,10),0,GetRandomNumber(-10,10));
-                float rot = Random.Range(0,180);
+                float rot = UnityEngine.Random.Range(0,180);
                 var localToTerrian = Matrix4x4.TRS(positionInTerrian,  upToNormal * Quaternion.Euler(0,rot,0) ,Vector3.one);
 
                 mats.Add(localToTerrian);
@@ -102,14 +139,41 @@ public class GrassRenderFeature : ScriptableRendererFeature
                 if(settings.grassCount <= 0) return;
 
                 ///////////////////////////////
+                ///生成深度图的mipmap
+                ///////////////////////////////
+                int width = depthTexture.width;
+                int mipmapLevel = 0;
+                RenderTexture currentRenderTexture = null;
+                RenderTexture preRenderTexture = null;
+                while(width > 8) {
+                    currentRenderTexture = RenderTexture.GetTemporary(width, width, 0, depthTextureFormat);
+                    currentRenderTexture.filterMode = FilterMode.Point;
+                    if(preRenderTexture == null) {
+                        cmd.Blit(Shader.GetGlobalTexture(depthTextureShaderID), currentRenderTexture);
+                    }
+                    else {
+                        cmd.Blit(preRenderTexture, currentRenderTexture, depthTextureMaterial);
+                        RenderTexture.ReleaseTemporary(preRenderTexture);
+                    }
+                    cmd.CopyTexture(currentRenderTexture, 0, 0, depthTexture, 0, mipmapLevel);
+                    preRenderTexture = currentRenderTexture;
+
+                    width /= 2;
+                    mipmapLevel++;
+                }
+                RenderTexture.ReleaseTemporary(preRenderTexture);
+
+                ///////////////////////////////
                 /// 剔除
                 ///////////////////////////////
                 grassCullingComputeShader.SetInt("instanceCount", settings.grassCount);
+                grassCullingComputeShader.SetInt("depthTextureSize", depthTextureSize);
                 Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
                 grassCullingComputeShader.SetMatrix("vpMatrix", vpMatrix);
                 grassCullingComputeShader.SetBuffer(kernel, "localToWorldMatrixBuffer", localToWorldMatrixBuffer);
                 cullResult.SetCounterValue(0);
                 grassCullingComputeShader.SetBuffer(kernel, "cullResult", cullResult);
+                grassCullingComputeShader.SetTexture(kernel, "hizTexture", depthTexture);
                 grassCullingComputeShader.Dispatch(kernel, 1 + (settings.grassCount / 640), 1, 1);
 
                 //获取裁剪后的实例数量
@@ -127,12 +191,18 @@ public class GrassRenderFeature : ScriptableRendererFeature
                 cmd.DrawMeshInstancedProcedural(Grass.GrassMesh, 0, settings.grassMaterial, 0, count);
                 context.ExecuteCommandBuffer(cmd);
             }
+            catch(Exception e){
+                Debug.LogException(e);
+            }
             finally{
                 CommandBufferPool.Release(cmd);
             }
         }
 
         void Clear(){
+            depthTexture?.Release();
+            depthTexture = null;
+
             localToWorldMatrixBuffer?.Release();
             localToWorldMatrixBuffer = null;
 

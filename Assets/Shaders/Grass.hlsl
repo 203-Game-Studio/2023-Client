@@ -23,6 +23,7 @@ struct Varyings
     float2 uv           : TEXCOORD0;
     float3 normalWS     : TEXCOORD1;
     float4 positionWS   : TEXCOORD2;
+    float4 positionSS   : TEXCOORD3;
 };
 
 CBUFFER_START(UnityPerMaterial)
@@ -50,6 +51,9 @@ float   _MicroPower;
 
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
+
+TEXTURE2D_X(_CameraDepthTexture);
+SAMPLER(sampler_CameraDepthTexture);
 
 StructuredBuffer<float4x4> _LocalToWorldMats;
 
@@ -129,6 +133,7 @@ Varyings LitPassVertex(Attributes input)
     
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
+    output.positionSS = ComputeScreenPos(output.positionCS);
 	output.normalWS = TransformObjectToWorldNormal(input.normalOS);
     output.uv = input.uv;
     return output;
@@ -192,7 +197,10 @@ half4 LitPassFragment(Varyings input) : SV_Target
 
     float3 finalColor = lerp(diffuseColor, specularColor + scatteringColor, _Roughness);
 
-    return float4(finalColor, 1);
+    half2 screen_uv = input.positionSS.xy / input.positionSS.w;
+    float4 color = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, sampler_CameraDepthTexture, screen_uv);
+
+    return color;//float4(screen_uv,0, 1);
 }
 
 #endif
