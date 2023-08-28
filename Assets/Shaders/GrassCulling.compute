@@ -36,9 +36,8 @@ void GrassCulling(uint3 id : SV_DispatchThreadID)
     boundVerts[6] = float4(boundMin.x, boundMax.y, boundMin.z, 1);
     boundVerts[7] = float4(boundMin.x, boundMin.y, boundMax.z, 1);
 
-    float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;//NDC下新的的AABB各个参数
-
-    //视椎体剔除
+    float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;
+    //视椎剔除
     bool isInClipSpace = false;
     for (int i = 0; i < 8; i++)
     {
@@ -46,6 +45,7 @@ void GrassCulling(uint3 id : SV_DispatchThreadID)
         if (!isInClipSpace && IsInClipSpace(positionCS))
             isInClipSpace = true;
 
+        //ndc的AABB
         float3 ndc = positionCS.xyz / positionCS.w;
         if (minX > ndc.x) minX = ndc.x;
         if (minY > ndc.y) minY = ndc.y;
@@ -54,28 +54,25 @@ void GrassCulling(uint3 id : SV_DispatchThreadID)
         if (maxY < ndc.y) maxY = ndc.y;
         if (maxZ < ndc.z) maxZ = ndc.z;
     }
-    if (!isInClipSpace) return;
+    if (!isInClipSpace)
+        return;
 
-    //Hiz遮挡剔除
-    //ndc的AABB的左下角和右上角的uv坐标，ndc的-1到1转换为uv的0到1
+    //hiz遮挡剔除
     float2 uvLeftBottom = float2(minX, minY) * 0.5f + 0.5f;
     float2 uvRightTop = float2(maxX, maxY) * 0.5f + 0.5f;
-    //DirextX下NDC的z值即为深度（因为MVP变换后是反转过的，所以要取最大的那个值）
     float depth = maxZ;
-    
-    //计算应该读取哪层mipmap
-    uint mipmapLevel = (uint)clamp(depthTextureSize * 2 / log2(max(maxX - minX, maxY - minY)), 0, log2(depthTextureSize) - 4);
-    //当前mipmap的大小
+
+    uint mipmapLevel = (uint)clamp(log2(max(maxX - minX, maxY - minY) * 0.5f * depthTextureSize), 0, log2(depthTextureSize) - 4);
     uint size = depthTextureSize / (1 << mipmapLevel);
 
-    //左下角和右下角点所在的像素
     uint2 pixelLeftBottom = uint2(clamp(uvLeftBottom.x * size, 0, size - 1), clamp(uvLeftBottom.y * size, 0, size - 1));
     uint2 pixelRightTop = uint2(clamp(uvRightTop.x * size, 0, size - 1), clamp(uvRightTop.y * size, 0, size - 1));
-    //采样对应深度图的对应像素的深度值，并且作比较
+    
     float depthInTexture = hizTexture.mips[mipmapLevel][pixelLeftBottom].r;
     if (pixelLeftBottom.x < pixelRightTop.x && pixelLeftBottom.y < pixelRightTop.y) {
         depthInTexture = min(min(depthInTexture, hizTexture.mips[mipmapLevel][pixelRightTop].r),
-            min(hizTexture.mips[mipmapLevel][int2(pixelLeftBottom.x, pixelRightTop.y)].r, hizTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r));
+            min(hizTexture.mips[mipmapLevel][int2(pixelLeftBottom.x, pixelRightTop.y)].r, 
+            hizTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r));
     }
     else if (pixelLeftBottom.x < pixelRightTop.x)
         depthInTexture = min(depthInTexture, hizTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r);
@@ -84,6 +81,6 @@ void GrassCulling(uint3 id : SV_DispatchThreadID)
 
     if (depthInTexture > depth)
         return;
-    
+
     cullResult.Append(mMatrix);
 }

@@ -52,8 +52,8 @@ float   _MicroPower;
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
 
-TEXTURE2D_X(_CameraDepthTexture);
-SAMPLER(sampler_CameraDepthTexture);
+TEXTURE2D_X(_hizTexture);
+SAMPLER(sampler_hizTexture);
 
 StructuredBuffer<float4x4> _LocalToWorldMats;
 
@@ -197,10 +197,7 @@ half4 LitPassFragment(Varyings input) : SV_Target
 
     float3 finalColor = lerp(diffuseColor, specularColor + scatteringColor, _Roughness);
 
-    half2 screen_uv = input.positionSS.xy / input.positionSS.w;
-    float4 color = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, sampler_CameraDepthTexture, screen_uv);
-
-    return color;//float4(screen_uv,0, 1);
+    return half4(finalColor, 1);
 }
 
 #endif
