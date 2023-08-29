@@ -21,7 +21,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
     }
     public Settings settings;
 
-    private RenderTexture depthTexture;
+    private RTHandle depthTexture;
     static int _depthTextureSize = 0;
     public static int depthTextureSize {
         get {
@@ -30,7 +30,6 @@ public class GrassRenderFeature : ScriptableRendererFeature
             return _depthTextureSize;
         }
     }
-    const RenderTextureFormat depthTextureFormat = RenderTextureFormat.RHalf;
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
@@ -54,51 +53,50 @@ public class GrassRenderFeature : ScriptableRendererFeature
 
     void InitDepthTexture() {
         if(depthTexture != null) return;
-        depthTexture = new RenderTexture(depthTextureSize, depthTextureSize, 0, depthTextureFormat);
-        depthTexture.autoGenerateMips = false;
-        depthTexture.useMipMap = true;
-        depthTexture.filterMode = FilterMode.Point;
-        depthTexture.Create();
+        RenderTextureDescriptor depthDesc = new RenderTextureDescriptor(depthTextureSize, depthTextureSize, RenderTextureFormat.RHalf);
+        depthDesc.autoGenerateMips = false;
+        depthDesc.useMipMap = true;
+        RenderingUtils.ReAllocateIfNeeded(ref depthTexture, depthDesc, FilterMode.Point, name: "Depth Mipmap Texture");
     }
 
     protected override void Dispose(bool disposing) {
-        //depthTexture?.Release();
+        depthTexture?.Release();
         depthTexture = null;
     }
 
     public class DepthGeneratorPass : ScriptableRenderPass {
-        RenderTexture depthTexture;
+        RTHandle depthTexture;
         Material depthTextureMaterial;
         int depthTextureShaderID;
-        private const string bufferName = "Depth Gen Buffer";
+        const string bufferName = "Depth Gen Buffer";
 
         public DepthGeneratorPass() {
             renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
             depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
+            //Shader.Find如果没引用打包会打不进去，后面有时间改下
             depthTextureMaterial = new Material(Shader.Find("John/DepthGeneratorShader"));
         }
 
-        public void Setup(RenderTexture depthTexture) {
+        public void Setup(RTHandle depthTexture) {
             ConfigureInput(ScriptableRenderPassInput.Depth);
             ConfigureClear(ClearFlag.None, Color.white);
             this.depthTexture = depthTexture;
-            //这个调用提示过时了，后面改成新的
             ConfigureTarget(this.depthTexture);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData) {
             if(!Application.isPlaying || renderingData.cameraData.cameraType != CameraType.Game) return;
             var cmd = CommandBufferPool.Get(bufferName);
-            try{
+            using (new ProfilingScope(cmd, profilingSampler)){
                 ///////////////////////////////
                 ///生成深度图的mipmap
                 ///////////////////////////////
-                int width = depthTexture.width;
+                int width = depthTexture.rt.width;
                 int mipmapLevel = 0;
                 RenderTexture currentRenderTexture = null;
                 RenderTexture preRenderTexture = null;
                 while(width > 8) {
-                    currentRenderTexture = RenderTexture.GetTemporary(width, width, 0, depthTextureFormat);
+                    currentRenderTexture = RenderTexture.GetTemporary(width, width, 0, RenderTextureFormat.RHalf);
                     currentRenderTexture.filterMode = FilterMode.Point;
                     if(preRenderTexture == null) {
                         cmd.Blit(preRenderTexture, currentRenderTexture, depthTextureMaterial, 1);
@@ -114,12 +112,8 @@ public class GrassRenderFeature : ScriptableRendererFeature
                     mipmapLevel++;
                 }
                 RenderTexture.ReleaseTemporary(preRenderTexture);
-                    context.ExecuteCommandBuffer(cmd);
-                }
-            catch(Exception e){
-                Debug.LogException(e);
-            }
-            finally{
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
                 CommandBufferPool.Release(cmd);
             }
         }
@@ -148,7 +142,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
 
         private const string bufferName = "GrassBuffer";
 
-        private RenderTexture depthTexture;
+        private RTHandle depthTexture;
 
         public GrassRenderPass(Settings settings){
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
@@ -164,7 +158,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
             UpdateBuffers();
         }
 
-        public void Setup(RenderTexture depthTexture){
+        public void Setup(RTHandle depthTexture){
             this.depthTexture = depthTexture;
         }
 
@@ -196,7 +190,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
             if(!Application.isPlaying) return;
             var cmd = CommandBufferPool.Get(bufferName);
-            try{
+            using (new ProfilingScope(cmd, profilingSampler)){
 
                 if(cachedInstanceCount != settings.grassCount) UpdateBuffers();
                 if(settings.grassCount <= 0) return;
@@ -229,11 +223,7 @@ public class GrassRenderFeature : ScriptableRendererFeature
                 settings.grassMaterial.SetBuffer("_LocalToWorldMats", cullResult);
                 cmd.DrawMeshInstancedProcedural(Grass.GrassMesh, 0, settings.grassMaterial, 0, count);
                 context.ExecuteCommandBuffer(cmd);
-            }
-            catch(Exception e){
-                Debug.LogException(e);
-            }
-            finally{
+                cmd.Clear();
                 CommandBufferPool.Release(cmd);
             }
         }
