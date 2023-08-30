@@ -16,73 +16,16 @@ inline float3 DecodeViewNormalStereo(float4 enc4)
     return n;
 }
 
-float4 RawSSR(Varyings input) : SV_Target
-{
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-    float2 uv = input.uv;
-    uv.y = 1.0 - uv.y;
-
-    float4 color = SAMPLE_TEXTURE2D_X(_CameraColorTexture, sampler_CameraColorTexture, uv);
-    //float3 normal = SampleSceneNormals(uv);
-    float3 normal = DecodeViewNormalStereo(
-        SAMPLE_TEXTURE2D(_CameraDepthNormalsTexture, sampler_CameraDepthNormalsTexture, uv));
-
-    // 获取相机空间坐标
-    #if UNITY_REVERSED_Z
-    float depth = SampleSceneDepth(uv);
-    #else
-        // 调整 z 以匹配 OpenGL 的 NDC
-        float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, SampleSceneDepth(UV));
-    #endif
-
-    uv.y = 1.0 - uv.y;
-    float4 NdcPos = float4(uv * 2.0f - 1.0f, depth, 1.0f);
-    NdcPos = mul(UNITY_MATRIX_I_VP, NdcPos);
-    NdcPos /= NdcPos.w;
-    float3 worldPos = NdcPos.xyz;
-
-    // 计算反射向量
-    float3 viewDir = normalize(worldPos - _WorldSpaceCameraPos);
-    float3 normalWS = normalize(normal);
-    float3 reflectDir = reflect(viewDir, normalWS);
-    reflectDir = normalize(reflectDir);
-
-    float4 reflColor = float4(0, 0, 0, 0);
-    UNITY_LOOP
-    for (int i = 0; i <= 128; i++)
-    {
-        float3 reflPos = worldPos.xyz + reflectDir * 0.01 * i;
-
-        float4 reflPosCS = mul(UNITY_MATRIX_VP, float4(reflPos, 1.0f));
-        float reflDepth = reflPosCS.w;
-
-        reflPosCS /= reflPosCS.w;
-        float2 reflUV = reflPosCS.xy * 0.5 + 0.5;
-        reflUV.y = 1.0 - reflUV.y;
-
-        if (reflUV.x < 0.0 || reflUV.y < 0.0 || reflUV.x > 1.0 || reflUV.y > 1.0) break;
-
-        float screenDepth = SampleSceneDepth(reflUV);
-        float ViewDepth = LinearEyeDepth(screenDepth, _ZBufferParams);
-
-        if (reflDepth > ViewDepth && abs(reflDepth - ViewDepth) < 0.01)
-        {
-            reflColor = SAMPLE_TEXTURE2D_X(_CameraColorTexture, sampler_CameraColorTexture, reflUV);
-            break;
-        }
-    }
-    return float4(reflColor.rgb, 1.0f);
-}
-
 float4 EfficentSSR(Varyings input) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
     float2 uv = input.uv;
     uv.y = 1.0 - uv.y;
     float4 color = SAMPLE_TEXTURE2D_X(_CameraColorTexture, sampler_CameraColorTexture, uv);
-    //float3 normal = SampleSceneNormals(uv);
-    float3 normal = DecodeViewNormalStereo(
+    
+    float3 normalVS = DecodeViewNormalStereo(
         SAMPLE_TEXTURE2D(_CameraDepthNormalsTexture, sampler_CameraDepthNormalsTexture, uv));
+        
     float2 texSize = ceil(_ScreenParams.xy);
 
     // Get camera space position
@@ -102,7 +45,6 @@ float4 EfficentSSR(Varyings input) : SV_Target
     // In view space
     float3 viewDir = normalize(viewPos);
     // view transform don't have scale, so that V_IT = V
-    float3 normalVS = normalize(mul(UNITY_MATRIX_V, normal).xyz);
     float3 reflectDir = normalize(reflect(viewDir, normalVS));
 
     float cosTheta = dot(-viewDir, normalVS);
