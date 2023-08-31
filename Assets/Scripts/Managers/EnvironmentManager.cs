@@ -8,6 +8,9 @@ public class EnvironmentManager : MonoBehaviour, IManager
 {
     public static EnvironmentManager Instance => GameManager.Instance.EnvironmentMgr;
 
+    /////////////////////////////////////////////
+    /// 风
+    /////////////////////////////////////////////
     [Header("树干风设置")]
     [Range(0f, 5f)]
     public float baseWindPower = 3f;
@@ -27,6 +30,15 @@ public class EnvironmentManager : MonoBehaviour, IManager
     [Header("风向")]
     [Range(0, 360)]
     public int windAngle = 45;
+
+    /////////////////////////////////////////////
+    /// 天空
+    /////////////////////////////////////////////
+    [SerializeField] private Transform sunTransform = null;
+    [SerializeField] private Transform moonTransform = null;
+    [SerializeField] private Transform directionLight = null;
+    [Header("天空设置")]
+    public int windSpeed = 0;
 
     public void OnManagerInit(){
         //初始化风相关参数
