@@ -17,6 +17,8 @@ struct Varyings
 
 float _SunRadius;
 float4 _SunColor;
+float _MoonRadius;
+float4 _MoonColor;
 
 Varyings SkyboxVertex(Attributes input)
 {
@@ -30,11 +32,18 @@ Varyings SkyboxVertex(Attributes input)
 
 half4 SkyboxFragment(Varyings input) : SV_Target
 {
-    // sun
+    //太阳
     float sun = distance(input.uv.xyz, _MainLightPosition);
     float sunDisc = 1 - (sun / _SunRadius);
-	sunDisc = saturate(sunDisc * 50);
-	float3 sunAndMoon = (sunDisc * _SunColor);
+	sunDisc = saturate(sunDisc);
+
+    //月亮
+    float moon = distance(input.uv.xyz, -_MainLightPosition);
+    float moonDisc = 1 - (moon / _MoonRadius);
+    moonDisc = saturate(moonDisc);
+
+	float3 sunAndMoon = sunDisc * _SunColor + moonDisc * _MoonColor;
+
     return half4(sunAndMoon, 1);
 }
 

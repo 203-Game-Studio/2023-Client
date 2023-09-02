@@ -2,9 +2,10 @@ Shader "John/Skybox"
 {
     Properties
     {
-        [Header(Sun Settings)]
 		_SunColor("Sun Color", Color) = (1,1,1,1)
 		_SunRadius("Sun Radius",  Range(0, 2)) = 0.1
+		_MoonColor("Moon Color", Color) = (1,1,1,1)
+		_MoonRadius("Moon Radius",  Range(0, 2)) = 0.1
     }
 
     SubShader
