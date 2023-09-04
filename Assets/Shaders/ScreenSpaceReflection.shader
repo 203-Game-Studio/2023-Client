@@ -25,9 +25,6 @@ Shader "ScreenSpaceReflectionShader"
 
     TEXTURE2D_X_FLOAT(_MainTex);
     SAMPLER(sampler_MainTex);
-
-	TEXTURE2D_X_FLOAT(_CameraDepthNormalsTexture);
-	SAMPLER(sampler_CameraDepthNormalsTexture);
     
     float _MaxSteps;
     float _MaxDistance;

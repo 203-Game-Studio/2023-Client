@@ -243,4 +243,19 @@ void LitPassFragment(
 #endif
 }
 
+void SSRPassFragment(
+    Varyings input
+    , out half4 outColor : SV_Target0
+#ifdef _WRITE_RENDERING_LAYERS
+    , out float4 outRenderingLayers : SV_Target1
+#endif
+)
+{
+//todo后面什么时候想做了，把所有shader的ssr pass加上
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+    outColor = half4(1,0,0,1);
+}
+
 #endif
