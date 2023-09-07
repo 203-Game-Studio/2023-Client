@@ -26,6 +26,13 @@ public class PlanetGenerator : MonoBehaviour
 		CreateRenderTexture3D(ref originalMap, processedDensityTexture);
 	}
 
+	void Update(){
+		if(Input.GetKeyUp(KeyCode.Space)){
+			ComputeDensity();
+			CreateRenderTexture3D(ref originalMap, processedDensityTexture);
+		}
+	}
+
 	void InitTextures()
 	{
 		int size = numChunks * (numPointsPerAxis - 1) + 1;
