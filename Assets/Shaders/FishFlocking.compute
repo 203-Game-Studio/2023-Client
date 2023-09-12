@@ -1,0 +1,90 @@
+#pragma kernel FishFlocking
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+
+struct FishData{
+    float3 position;
+    float3 direction;
+};
+RWStructuredBuffer<FishData> fishDataBuffer;
+
+int fishCount;
+float deltaTime;
+float speed;
+float3 target;
+float3 obstacle;
+float viewRadius;
+float separationRadius;
+
+float3 ClampToMaxSpeed(float3 currentSpeed){
+    float speedMagnitude = length(currentSpeed);
+    if(speedMagnitude == 0){
+        return currentSpeed;
+    }
+    float3 speedNormalized = normalize(currentSpeed);
+    if(speedMagnitude > speed){
+        return speedNormalized * speed;
+    }
+    else{
+        return currentSpeed;
+    }
+}
+
+[numthreads(256, 1, 1)]
+void FishFlocking(uint3 id : SV_DispatchThreadID)
+{
+    FishData cur = fishDataBuffer[id.x];
+    
+    int num = 0;
+    float3 separationVec = 0;
+    float3 center = 0;
+    float3 alignmentVec = 0;
+    for(int idx = 0; idx < fishCount; ++idx){
+        if(idx == id.x) continue;
+        FishData neighbour = fishDataBuffer[idx];
+        //范围内
+        float3 to = cur.position - neighbour.position;
+        float distance = abs(length(to));
+        distance = max(distance, 0.00001);
+        if(distance < viewRadius){
+            ++num;
+
+            //Separation
+            float3 separationForce = to * separationRadius / (distance * distance);
+            separationVec += separationForce;
+
+            //Cohesion
+            center += neighbour.position;
+
+            //Alignment
+            alignmentVec += neighbour.direction;
+        }
+    }
+    if(num == 0){
+        return;
+    }
+    float3 steer = SafeNormalize(separationVec) * speed - cur.direction;
+    separationVec = ClampToMaxSpeed(steer);
+
+    center /= num;
+    steer = SafeNormalize(center - cur.position) * speed - cur.direction;
+    float3 cohesionVec = ClampToMaxSpeed(steer);
+
+    alignmentVec /= num;
+    steer = SafeNormalize(alignmentVec) * speed - cur.direction;
+    alignmentVec = ClampToMaxSpeed(steer);
+
+    float3 targetDir = SafeNormalize(target - cur.position);
+    /*float3 obstacleDir = 0;
+    if(length(cur.position - obstacle) < 5){
+        obstacleDir = SafeNormalize(cur.position - obstacle);
+    }*/
+
+    float3 finalDir = separationVec * 1 + cohesionVec * 1 + alignmentVec * 1 + targetDir;
+    finalDir = ClampToMaxSpeed(finalDir);
+
+    cur.direction += finalDir * deltaTime;
+    cur.direction = ClampToMaxSpeed(cur.direction);
+    cur.position += cur.direction * deltaTime;
+
+    fishDataBuffer[id.x] = cur;
+}
