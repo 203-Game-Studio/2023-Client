@@ -1,4 +1,5 @@
 #pragma kernel FishFlocking
+#pragma kernel SpatialIndexing
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 struct FishData{
@@ -7,6 +8,9 @@ struct FishData{
 };
 RWStructuredBuffer<FishData> fishDataBuffer;
 
+RWStructuredBuffer<uint> fishOffsets;
+RWStructuredBuffer<uint> fishIndex;
+
 int fishCount;
 float deltaTime;
 float speed;
@@ -14,6 +18,10 @@ float3 target;
 float3 obstacle;
 float viewRadius;
 float separationRadius;
+float separationWeight;
+float cohesionWeight;
+float alignmentWeight;
+float targetWeight;
 
 float3 ClampToMaxSpeed(float3 currentSpeed){
     float speedMagnitude = length(currentSpeed);
@@ -32,12 +40,15 @@ float3 ClampToMaxSpeed(float3 currentSpeed){
 [numthreads(256, 1, 1)]
 void FishFlocking(uint3 id : SV_DispatchThreadID)
 {
+    if (id.x >= fishCount) return;
     FishData cur = fishDataBuffer[id.x];
     
-    int num = 0;
+    int neighbourNum = 0;
+    int separationNum = 0;
     float3 separationVec = 0;
     float3 center = 0;
     float3 alignmentVec = 0;
+    float3 cohesionVec = 0;
     for(int idx = 0; idx < fishCount; ++idx){
         if(idx == id.x) continue;
         FishData neighbour = fishDataBuffer[idx];
@@ -46,11 +57,14 @@ void FishFlocking(uint3 id : SV_DispatchThreadID)
         float distance = abs(length(to));
         distance = max(distance, 0.00001);
         if(distance < viewRadius){
-            ++num;
+            ++neighbourNum;
 
             //Separation
-            float3 separationForce = to * separationRadius / (distance * distance);
-            separationVec += separationForce;
+            if(distance < separationRadius){
+                ++separationNum;
+                float3 separationForce = to / (distance * distance);
+                separationVec += separationForce;
+            }
 
             //Cohesion
             center += neighbour.position;
@@ -59,19 +73,20 @@ void FishFlocking(uint3 id : SV_DispatchThreadID)
             alignmentVec += neighbour.direction;
         }
     }
-    if(num == 0){
-        return;
+    if(neighbourNum != 0){
+        center /= neighbourNum;
+        float3 steer = SafeNormalize(center - cur.position) * speed - cur.direction;
+        cohesionVec = ClampToMaxSpeed(steer);
+
+        alignmentVec /= neighbourNum;
+        steer = SafeNormalize(alignmentVec) * speed - cur.direction;
+        alignmentVec = ClampToMaxSpeed(steer);
     }
-    float3 steer = SafeNormalize(separationVec) * speed - cur.direction;
-    separationVec = ClampToMaxSpeed(steer);
 
-    center /= num;
-    steer = SafeNormalize(center - cur.position) * speed - cur.direction;
-    float3 cohesionVec = ClampToMaxSpeed(steer);
-
-    alignmentVec /= num;
-    steer = SafeNormalize(alignmentVec) * speed - cur.direction;
-    alignmentVec = ClampToMaxSpeed(steer);
+    if(separationNum != 0){
+        float3 steer = SafeNormalize(separationVec) * speed - cur.direction;
+        separationVec = ClampToMaxSpeed(steer);
+    }
 
     float3 targetDir = SafeNormalize(target - cur.position);
     /*float3 obstacleDir = 0;
@@ -79,7 +94,8 @@ void FishFlocking(uint3 id : SV_DispatchThreadID)
         obstacleDir = SafeNormalize(cur.position - obstacle);
     }*/
 
-    float3 finalDir = separationVec * 1 + cohesionVec * 1 + alignmentVec * 1 + targetDir;
+    float3 finalDir = separationVec * separationWeight + cohesionVec * cohesionWeight + 
+                    alignmentVec * alignmentWeight + targetDir * targetWeight;
     finalDir = ClampToMaxSpeed(finalDir);
 
     cur.direction += finalDir * deltaTime;
@@ -87,4 +103,18 @@ void FishFlocking(uint3 id : SV_DispatchThreadID)
     cur.position += cur.direction * deltaTime;
 
     fishDataBuffer[id.x] = cur;
+}
+
+
+[numthreads(256, 1, 1)]
+void SpatialIndexing(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= fishCount) return;
+
+    uint2 cell = uint2(fishDataBuffer[id.x].position.xy / viewRadius);
+    uint cellNum = (cell.x + cell.y * 100) % 10000000;
+
+    InterlockedAdd(fishOffsets[cellNum], 1);
+    uint offset = fishOffsets[cellNum];
+    fishIndex[offset] = id.x;
 }

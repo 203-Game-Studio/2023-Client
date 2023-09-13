@@ -5,9 +5,15 @@ public class FishFlocking : MonoBehaviour
     public float speed = 5.0f;
     public float viewRadius = 3.0f;
     public float separationRadius =  0.5f;
+    public float separationWeight =  0.5f;
+    public float cohesionWeight =  0.5f;
+    public float alignmentWeight =  0.5f;
+    public float targetWeight =  0.5f;
     public int count = 100;
     public ComputeShader fishFlcokingCS;
-    public GameObject prefab;
+    public Mesh fishMesh;
+    public Material fishMat;
+    public bool debug;
 
     public Transform target;
     public Transform obstacle;
@@ -20,7 +26,6 @@ public class FishFlocking : MonoBehaviour
         public Vector3 direction;
     }
     private FishData[] fishDatas;
-    private GameObject[] fishGOs;
 
     int groupSizeX;
     
@@ -29,15 +34,14 @@ public class FishFlocking : MonoBehaviour
         groupSizeX = Mathf.CeilToInt(count / 256.0f);
         int num = groupSizeX * 256;
 
-        fishGOs = new GameObject[count];
         fishDatas = new FishData[count];
         for(int idx = 0; idx < count; ++idx){
-            Vector3 offset = new Vector3(Random.Range(-2,2),Random.Range(-2,2),Random.Range(-2,2));
+            Vector3 offset = new Vector3(Random.Range(-256,256),Random.Range(-256,256),Random.Range(-256,256));
             fishDatas[idx] = new FishData();
             fishDatas[idx].position = transform.position + offset;
             fishDatas[idx].direction = Vector3.zero;
 
-            fishGOs[idx] = GameObject.Instantiate(prefab);
+            //fishGOs[idx] = GameObject.Instantiate(prefab);
         }
 
         fishDataBuffer = new ComputeBuffer(num, 6 * sizeof(float));
@@ -52,18 +56,26 @@ public class FishFlocking : MonoBehaviour
         fishFlcokingCS.SetFloat("viewRadius", viewRadius);
         fishFlcokingCS.SetFloat("separationRadius", separationRadius);
         fishFlcokingCS.SetVector("target", target.position);
-        fishFlcokingCS.SetVector("obstacle", obstacle.position);
+        //fishFlcokingCS.SetVector("obstacle", obstacle.position);
+        fishFlcokingCS.SetFloat("separationWeight", separationWeight);
+        fishFlcokingCS.SetFloat("cohesionWeight", cohesionWeight);
+        fishFlcokingCS.SetFloat("alignmentWeight", alignmentWeight);
+        fishFlcokingCS.SetFloat("targetWeight", targetWeight);
 
         fishFlcokingCS.Dispatch(kernel, groupSizeX, 1, 1);
-        fishDataBuffer.GetData(fishDatas);
+        if(debug){
+            fishDataBuffer.GetData(fishDatas);
+        }
 
+        fishMat.SetBuffer("_Fishes", fishDataBuffer);
+        var bounds = new Bounds(Vector3.zero, Vector3.one * 512);
+        Graphics.DrawMeshInstancedProcedural(fishMesh, 0, fishMat, bounds, count);
+    }
+
+    void OnDrawGizmos(){
+        if(!Application.isPlaying || !debug) return;
         for(int idx = 0; idx < count; ++idx){
-            fishGOs[idx].transform.position = fishDatas[idx].position;
-            if (fishDatas[idx].direction.sqrMagnitude > 0.00001)
-            {
-                Vector3 up = Vector3.Slerp(transform.up, fishDatas[idx].direction, speed * Time.deltaTime);
-                fishGOs[idx].transform.right = up;
-            }
+            Gizmos.DrawRay(fishDatas[idx].position, fishDatas[idx].direction);
         }
     }
 }
