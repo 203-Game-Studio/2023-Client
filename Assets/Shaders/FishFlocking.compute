@@ -8,8 +8,8 @@ struct FishData{
 };
 RWStructuredBuffer<FishData> fishDataBuffer;
 
-RWStructuredBuffer<uint> fishOffsets;
-RWStructuredBuffer<uint> fishIndex;
+RWBuffer<uint> fishOffsets;
+RWBuffer<uint> fishIndex;
 
 int fishCount;
 float deltaTime;
