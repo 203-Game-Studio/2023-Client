@@ -1,29 +1,46 @@
 #pragma kernel FishFlocking
+#pragma kernel FishFlockingUseSpatialIndexing
 #pragma kernel SpatialIndexing
+#pragma kernel CellCounts
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 struct FishData{
     float3 position;
+    float speed;
+    //float placeholder;//占位 用来对齐内存
     float3 direction;
+    uint targetIdx;
 };
 RWStructuredBuffer<FishData> fishDataBuffer;
 
-RWBuffer<uint> fishOffsets;
-RWBuffer<uint> fishIndex;
+RWStructuredBuffer<float3> targets;
+int targetCount;
 
-int fishCount;
+RWStructuredBuffer<float4> obstacles;
+int obstacleCount;
+
+RWBuffer<uint> fishOffset;
+RWBuffer<uint> fishIndex;
+RWBuffer<uint> fishCount;
+
+int count;
 float deltaTime;
-float speed;
-float3 target;
 float3 obstacle;
-float viewRadius;
-float separationRadius;
+float targetRadius2;
+float viewRadius2;
+float separationRadius2;
 float separationWeight;
 float cohesionWeight;
 float alignmentWeight;
 float targetWeight;
+float obstacleWeight;
 
-float3 ClampToMaxSpeed(float3 currentSpeed){
+float viewRadius;
+int cellCount;
+int cellCount2;
+int cellCount3;
+
+float3 ClampToMaxSpeed(float3 currentSpeed, float speed){
     float speedMagnitude = length(currentSpeed);
     if(speedMagnitude == 0){
         return currentSpeed;
@@ -40,7 +57,7 @@ float3 ClampToMaxSpeed(float3 currentSpeed){
 [numthreads(256, 1, 1)]
 void FishFlocking(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= fishCount) return;
+    if (id.x >= count) return;
     FishData cur = fishDataBuffer[id.x];
     
     int neighbourNum = 0;
@@ -49,23 +66,23 @@ void FishFlocking(uint3 id : SV_DispatchThreadID)
     float3 center = 0;
     float3 alignmentVec = 0;
     float3 cohesionVec = 0;
-    for(int idx = 0; idx < fishCount; ++idx){
-        if(idx == id.x) continue;
+    for(int idx = 0; idx < count; ++idx){
+        //if(idx == id.x) continue;
         FishData neighbour = fishDataBuffer[idx];
         //范围内
         float3 to = cur.position - neighbour.position;
-        float distance = abs(length(to));
-        distance = max(distance, 0.00001);
-        if(distance < viewRadius){
+        float distance2 = to.x * to.x + to.y * to.y + to.z * to.z;
+        distance2 = max(distance2, 0.00001);
+
+        //Separation
+        if(distance2 < separationRadius2){
+            ++separationNum;
+            float3 separationForce = to / distance2;
+            separationVec += separationForce;
+        }
+
+        if(distance2 < viewRadius2){
             ++neighbourNum;
-
-            //Separation
-            if(distance < separationRadius){
-                ++separationNum;
-                float3 separationForce = to / (distance * distance);
-                separationVec += separationForce;
-            }
-
             //Cohesion
             center += neighbour.position;
 
@@ -75,46 +92,149 @@ void FishFlocking(uint3 id : SV_DispatchThreadID)
     }
     if(neighbourNum != 0){
         center /= neighbourNum;
-        float3 steer = SafeNormalize(center - cur.position) * speed - cur.direction;
-        cohesionVec = ClampToMaxSpeed(steer);
+        cohesionVec = SafeNormalize(center - cur.position) * cur.speed - cur.direction;
+        //cohesionVec = ClampToMaxSpeed(steer);
 
         alignmentVec /= neighbourNum;
-        steer = SafeNormalize(alignmentVec) * speed - cur.direction;
-        alignmentVec = ClampToMaxSpeed(steer);
+        alignmentVec = SafeNormalize(alignmentVec) * cur.speed - cur.direction;
+        //alignmentVec = ClampToMaxSpeed(steer);
     }
 
     if(separationNum != 0){
-        float3 steer = SafeNormalize(separationVec) * speed - cur.direction;
-        separationVec = ClampToMaxSpeed(steer);
+        separationVec = separationVec * cur.speed - cur.direction;
+        //separationVec = ClampToMaxSpeed(steer);
     }
 
-    float3 targetDir = SafeNormalize(target - cur.position);
-    /*float3 obstacleDir = 0;
-    if(length(cur.position - obstacle) < 5){
-        obstacleDir = SafeNormalize(cur.position - obstacle);
-    }*/
+    float3 target = targets[cur.targetIdx];
+    float3 toTarget = target - cur.position;
+    float distance2 = toTarget.x*toTarget.x + toTarget.y*toTarget.y + toTarget.z*toTarget.z;
+    if(distance2 < targetRadius2){
+        cur.targetIdx = (cur.targetIdx + 1) % targetCount;
+    }
+
+    float3 targetDir = SafeNormalize(toTarget) * cur.speed - cur.direction;
+
+    float3 obstacleDir = 0;
+    for(int idx = 0; idx < obstacleCount; ++idx){
+        float4 sphere = obstacles[idx];
+        float3 toObstacle = cur.position - sphere.xyz;
+        distance2 = toObstacle.x*toObstacle.x + toObstacle.y*toObstacle.y + toObstacle.z*toObstacle.z;
+        if(distance2 < sphere.w){
+            obstacleDir += toObstacle / distance2;
+        }
+    }
 
     float3 finalDir = separationVec * separationWeight + cohesionVec * cohesionWeight + 
-                    alignmentVec * alignmentWeight + targetDir * targetWeight;
-    finalDir = ClampToMaxSpeed(finalDir);
+                    alignmentVec * alignmentWeight + targetDir * targetWeight + obstacleDir * obstacleWeight;
+    finalDir = ClampToMaxSpeed(finalDir, cur.speed);
 
     cur.direction += finalDir * deltaTime;
-    cur.direction = ClampToMaxSpeed(cur.direction);
+    //cur.direction = ClampToMaxSpeed(cur.direction);
     cur.position += cur.direction * deltaTime;
 
     fishDataBuffer[id.x] = cur;
 }
 
+[numthreads(256, 1, 1)]
+void CellCounts(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= count) return;
+
+    uint3 cell = uint3(fishDataBuffer[id.x].position / viewRadius);
+    uint cellIdx = (cell.x + cell.y * cellCount + cell.z * cellCount2) % cellCount3;
+
+    InterlockedAdd(fishCount[cellIdx], 1);
+}
 
 [numthreads(256, 1, 1)]
 void SpatialIndexing(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= fishCount) return;
+    if (id.x >= count) return;
 
-    uint2 cell = uint2(fishDataBuffer[id.x].position.xy / viewRadius);
-    uint cellNum = (cell.x + cell.y * 100) % 10000000;
+    uint3 cell = uint3(fishDataBuffer[id.x].position / viewRadius);
+    uint cellIdx = (cell.x + cell.y * cellCount + cell.z * cellCount2) % cellCount3;
 
-    InterlockedAdd(fishOffsets[cellNum], 1);
-    uint offset = fishOffsets[cellNum];
+    InterlockedAdd(fishOffset[cellIdx], 1);
+    uint offset = fishOffset[cellIdx];
     fishIndex[offset] = id.x;
+}
+
+[numthreads(256, 1, 1)]
+void FishFlockingUseSpatialIndexing(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= count) return;
+    FishData cur = fishDataBuffer[id.x];
+    
+    int neighbourNum = 0;
+    int separationNum = 0;
+    float3 separationVec = 0;
+    float3 center = 0;
+    float3 alignmentVec = 0;
+    float3 cohesionVec = 0;
+
+    for (int z = -1; z <= 1; ++z) {
+        for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                uint3 cell = uint3(fishDataBuffer[id.x].position / viewRadius);
+                uint cellIdx = (cell.x + x + (cell.y + y) * cellCount + 
+                    (cell.z + z) * cellCount2 + cellCount3) % cellCount3;
+                uint idx = fishOffset[cellIdx], last = idx + fishCount[cellIdx];
+
+                for (; idx < last; ++idx) {
+                    if(idx == id.x) continue;
+                    FishData neighbour = fishDataBuffer[fishIndex[idx]];
+                    //范围内
+                    float3 to = cur.position - neighbour.position;
+                    float distance2 = to.x * to.x + to.y * to.y + to.z * to.z;
+                    if(distance2 < viewRadius2){
+                        ++neighbourNum;
+
+                        //Separation
+                        if(distance2 < separationRadius2){
+                            ++separationNum;
+                            float3 separationForce = to / distance2;
+                            separationVec += separationForce;
+                        }
+
+                        //Cohesion
+                        center += neighbour.position;
+
+                        //Alignment
+                        alignmentVec += neighbour.direction;
+                    }
+                }
+            }
+        }
+    }
+    
+    if(neighbourNum != 0){
+        center /= neighbourNum;
+        cohesionVec = SafeNormalize(center - cur.position) * cur.speed - cur.direction;
+        //cohesionVec = ClampToMaxSpeed(steer);
+
+        alignmentVec /= neighbourNum;
+        alignmentVec = SafeNormalize(alignmentVec) * cur.speed - cur.direction;
+        //alignmentVec = ClampToMaxSpeed(steer);
+    }
+
+    if(separationNum != 0){
+        separationVec = SafeNormalize(separationVec) * cur.speed - cur.direction;
+        //separationVec = ClampToMaxSpeed(steer);
+    }
+
+    float3 targetDir = 0;//SafeNormalize(target - cur.position);
+    //float3 obstacleDir = 0;
+    //if(length(cur.position - obstacle) < 5){
+    //    obstacleDir = SafeNormalize(cur.position - obstacle);
+    //}
+
+    float3 finalDir = separationVec * separationWeight + cohesionVec * cohesionWeight + 
+                    alignmentVec * alignmentWeight + targetDir * targetWeight;
+    //finalDir = ClampToMaxSpeed(finalDir, cur.speed);
+
+    cur.direction += finalDir * deltaTime;
+    //cur.direction = ClampToMaxSpeed(cur.direction, cur.speed);
+    cur.position += cur.direction * deltaTime;
+
+    fishDataBuffer[id.x] = cur;
 }
