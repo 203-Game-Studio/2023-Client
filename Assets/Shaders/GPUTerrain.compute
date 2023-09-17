@@ -1,0 +1,47 @@
+#pragma kernel TraverseQuadTree
+
+ConsumeStructuredBuffer<uint2> _NodeListA;
+AppendStructuredBuffer<uint2> _NodeListB;
+AppendStructuredBuffer<uint3> _FinalNodeList;
+
+uniform uint _LodLevel;
+uniform float3 _CameraPosWS;
+
+//x为nodeSize(m)
+//y等于nodeSize/16
+//z等于worldSize/nodeSize
+//w等于2^lodLevel
+uniform float4 _NodeParams[6];
+
+float3 GetNodePositionWS(uint2 node){
+    float nodeMeterSize = _NodeParams[_LodLevel].x;
+    float nodeCount = _NodeParams[_LodLevel].z;
+    float2 nodePosWS = ((float2)node - (nodeCount - 1) * 0.5) * nodeMeterSize;
+    return float3(nodePosWS.x, 0, nodePosWS.y);
+}
+
+bool EvaluateNode(uint2 node){
+    float3 nodePosWS = GetNodePositionWS(node);
+    float3 dv = _CameraPosWS - nodePosWS;
+    float distance2 = dv.x*dv.x + dv.y*dv.y + dv.z*dv.z;
+    float nodeSize = _NodeParams[_LodLevel].x;
+    float f2 = distance2 / (nodeSize * nodeSize);
+    if(f2 < 1){
+        return true;
+    }
+    return false;
+}
+
+[numthreads(1, 1, 1)]
+void TraverseQuadTree(uint3 id : SV_DispatchThreadID)
+{
+    uint2 node = _NodeListA.Consume();
+    if(_LodLevel > 0 && EvaluateNode(node)){
+        _NodeListB.Append(node * 2);
+        _NodeListB.Append(node * 2 + uint2(1,0));
+        _NodeListB.Append(node * 2 + uint2(0,1));
+        _NodeListB.Append(node * 2 + uint2(1,1));
+    }else{
+        _FinalNodeList.Append(uint3(node, _LodLevel));
+    }
+}
