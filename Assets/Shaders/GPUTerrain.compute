@@ -1,8 +1,23 @@
 #pragma kernel TraverseQuadTree
+#pragma kernel BuildPatches
+
+#define PATCH_COUNT_PER_NODE 8
+
+struct NodeDescriptor{
+    uint branch;
+};
+
+struct RenderPatch{
+    float2 position;
+    uint lod;
+};
 
 ConsumeStructuredBuffer<uint2> _NodeListA;
 AppendStructuredBuffer<uint2> _NodeListB;
 AppendStructuredBuffer<uint3> _FinalNodeList;
+RWStructuredBuffer<NodeDescriptor> _NodeDescriptors;
+AppendStructuredBuffer<RenderPatch> _CulledPatchList;
+StructuredBuffer<uint3> _RenderNodeList;
 
 uniform uint _LodLevel;
 uniform float3 _CameraPosWS;
@@ -12,6 +27,8 @@ uniform float3 _CameraPosWS;
 //z等于worldSize/nodeSize
 //w等于2^lodLevel
 uniform float4 _NodeParams[6];
+
+uniform uint _NodeIDOffsets[6];
 
 float3 GetNodePositionWS(uint2 node){
     float nodeMeterSize = _NodeParams[_LodLevel].x;
@@ -25,23 +42,59 @@ bool EvaluateNode(uint2 node){
     float3 dv = _CameraPosWS - nodePosWS;
     float distance2 = dv.x*dv.x + dv.y*dv.y + dv.z*dv.z;
     float nodeSize = _NodeParams[_LodLevel].x;
-    float f2 = distance2 / (nodeSize * nodeSize);
+    float f2 = distance2 / (nodeSize * nodeSize * 1.44);
     if(f2 < 1){
         return true;
     }
     return false;
 }
 
+uint GetNodeID(uint2 node){
+    return _NodeIDOffsets[_LodLevel] + node.y * _NodeParams[_LodLevel].z + node.x;
+}
+
 [numthreads(1, 1, 1)]
 void TraverseQuadTree(uint3 id : SV_DispatchThreadID)
 {
     uint2 node = _NodeListA.Consume();
+    uint nodeID = GetNodeID(node);
+    NodeDescriptor desc = _NodeDescriptors[nodeID];
     if(_LodLevel > 0 && EvaluateNode(node)){
         _NodeListB.Append(node * 2);
         _NodeListB.Append(node * 2 + uint2(1,0));
         _NodeListB.Append(node * 2 + uint2(0,1));
         _NodeListB.Append(node * 2 + uint2(1,1));
+        desc.branch = 1;
     }else{
         _FinalNodeList.Append(uint3(node, _LodLevel));
+        desc.branch = 0;
     }
+    _NodeDescriptors[nodeID] = desc;
+}
+
+float2 GetNodePositionWS2(uint2 node,uint mip){
+    float nodeMeterSize = _NodeParams[mip].x;
+    float nodeCount = _NodeParams[mip].z;
+    float2 nodePositionWS = ((float2)node - (nodeCount-1)*0.5) * nodeMeterSize;
+    return nodePositionWS;
+}
+
+RenderPatch CreatePatch(uint3 node, uint2 patchOffset){
+    uint lod = node.z;
+    float nodeMeterSize = _NodeParams[lod].x;
+    float patchMeterSize = nodeMeterSize / PATCH_COUNT_PER_NODE;
+    float2 nodePositionWS = GetNodePositionWS2(node.xy, lod);
+
+    RenderPatch patch;
+    patch.lod = lod;
+    patch.position = nodePositionWS + (patchOffset - (PATCH_COUNT_PER_NODE - 1) * 0.5) * patchMeterSize;
+    return patch;
+}
+
+[numthreads(8,8,1)]
+void BuildPatches(uint3 id : SV_DispatchThreadID, uint3 groupId:SV_GroupID, uint3 groupThreadId:SV_GroupThreadID){
+    uint3 node = _RenderNodeList[groupId.x];
+    uint2 patchOffset = groupThreadId.xy;
+    RenderPatch patch = CreatePatch(node, patchOffset);
+    _CulledPatchList.Append(patch);
 }
