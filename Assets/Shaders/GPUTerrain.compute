@@ -12,6 +12,8 @@ struct RenderPatch{
     uint lod;
 };
 
+Texture2D<float4> _MinMaxHeightTexture;
+
 ConsumeStructuredBuffer<uint2> _NodeListA;
 AppendStructuredBuffer<uint2> _NodeListB;
 AppendStructuredBuffer<uint3> _FinalNodeList;
@@ -21,6 +23,7 @@ StructuredBuffer<uint3> _RenderNodeList;
 
 uniform uint _LodLevel;
 uniform float3 _CameraPosWS;
+uniform float3 _WorldSize;
 
 //x为nodeSize(m)
 //y等于nodeSize/16
@@ -34,7 +37,9 @@ float3 GetNodePositionWS(uint2 node){
     float nodeMeterSize = _NodeParams[_LodLevel].x;
     float nodeCount = _NodeParams[_LodLevel].z;
     float2 nodePosWS = ((float2)node - (nodeCount - 1) * 0.5) * nodeMeterSize;
-    return float3(nodePosWS.x, 0, nodePosWS.y);
+    float2 minMaxHeight = _MinMaxHeightTexture.mips[_LodLevel][node].xy;
+    float y = (minMaxHeight.x + minMaxHeight.y) * 0.5 * _WorldSize.y;
+    return float3(nodePosWS.x, y, nodePosWS.y);
 }
 
 bool EvaluateNode(uint2 node){

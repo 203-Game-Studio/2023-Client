@@ -44,6 +44,21 @@ public class GPUTerrain : MonoBehaviour
             return _patchMesh;
         }
     }
+
+    [SerializeField]
+    Texture2D heightMap;
+
+    [SerializeField]
+    Texture2D[] _minMaxHeightMaps;
+    RenderTexture _minMaxHeightMap;
+    RenderTexture minMaxHeightMap{
+        get{
+            if(!_minMaxHeightMap){
+                _minMaxHeightMap = CreateRenderTextureWithMipTextures(_minMaxHeightMaps,RenderTextureFormat.RG32);
+            }
+            return _minMaxHeightMap;
+        }
+    }
     
     Material terrainMat;
     void Start()
@@ -65,9 +80,12 @@ public class GPUTerrain : MonoBehaviour
         patchIndirectArgs.SetData(new uint[]{patchMesh.GetIndexCount(0),0,0,0,0});
 
         terrainCS.SetBuffer(traverseQuadTreeKernel, "_FinalNodeList", finalNodeListBuffer);
+        terrainCS.SetTexture(traverseQuadTreeKernel, "_MinMaxHeightTexture", minMaxHeightMap);
         terrainCS.SetBuffer(traverseQuadTreeKernel, "_NodeDescriptors", nodeDescriptorsBuffer);
         terrainCS.SetBuffer(buildPatchesKernel, "_CulledPatchList", culledPatchBuffer);
         terrainCS.SetBuffer(buildPatchesKernel, "_RenderNodeList", finalNodeListBuffer);
+        terrainCS.SetTexture(buildPatchesKernel, "_MinMaxHeightTexture", minMaxHeightMap);
+        terrainCS.SetVector("_WorldSize", worldSize);
 
         float wSize = worldSize.x;
         int nodeCount = MAX_LOD_NODE_COUNT;
@@ -103,6 +121,8 @@ public class GPUTerrain : MonoBehaviour
         
         terrainMat = new Material(Shader.Find("John/Terrain"));
         terrainMat.SetBuffer("PatchList", culledPatchBuffer);
+        terrainMat.SetTexture("_HeightMap", heightMap);
+        terrainMat.SetVector("_WorldSize", worldSize);
     }
 
     void Update()
@@ -158,42 +178,57 @@ public class GPUTerrain : MonoBehaviour
     }
 
     static Mesh CreatePlaneMesh(int size){
-            var mesh = new Mesh();
-           
-            var sizePerGrid = 0.5f;
-            var totalMeterSize = size * sizePerGrid;
-            var gridCount = size * size;
-            var triangleCount = gridCount * 2;
+        var mesh = new Mesh();
+       
+        var sizePerGrid = 0.5f;
+        var totalMeterSize = size * sizePerGrid;
+        var gridCount = size * size;
+        var triangleCount = gridCount * 2;
 
-            var vOffset = - totalMeterSize * 0.5f;
+        var vOffset = - totalMeterSize * 0.5f;
 
-            List<Vector3> vertices = new List<Vector3>();
-            List<Vector2> uvs = new List<Vector2>();
-            float uvStrip = 1f / size;
-            for(var z = 0; z <= size;z ++){
-                for(var x = 0; x <= size; x ++){
-                    vertices.Add(new Vector3(vOffset + x * 0.5f,0,vOffset + z * 0.5f));
-                    uvs.Add(new Vector2(x * uvStrip,z * uvStrip));
-                }
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector2> uvs = new List<Vector2>();
+        float uvStrip = 1f / size;
+        for(var z = 0; z <= size;z ++){
+            for(var x = 0; x <= size; x ++){
+                vertices.Add(new Vector3(vOffset + x * 0.5f,0,vOffset + z * 0.5f));
+                uvs.Add(new Vector2(x * uvStrip,z * uvStrip));
             }
-            mesh.SetVertices(vertices);
-            mesh.SetUVs(0,uvs);
-
-            int[] indices = new int[triangleCount * 3];
-
-            for(var gridIndex = 0; gridIndex < gridCount ; gridIndex ++){
-                var offset = gridIndex * 6;
-                var vIndex = (gridIndex / size) * (size + 1) + (gridIndex % size);
-
-                indices[offset] = vIndex;
-                indices[offset + 1] = vIndex + size + 1;
-                indices[offset + 2] = vIndex + 1;
-                indices[offset + 3] = vIndex + 1; 
-                indices[offset + 4] = vIndex + size + 1;
-                indices[offset + 5] = vIndex + size + 2;
-            }
-            mesh.SetIndices(indices,MeshTopology.Triangles,0);
-            mesh.UploadMeshData(false);
-            return mesh;
         }
+        mesh.SetVertices(vertices);
+        mesh.SetUVs(0,uvs);
+
+        int[] indices = new int[triangleCount * 3];
+
+        for(var gridIndex = 0; gridIndex < gridCount ; gridIndex ++){
+            var offset = gridIndex * 6;
+            var vIndex = (gridIndex / size) * (size + 1) + (gridIndex % size);
+
+            indices[offset] = vIndex;
+            indices[offset + 1] = vIndex + size + 1;
+            indices[offset + 2] = vIndex + 1;
+            indices[offset + 3] = vIndex + 1; 
+            indices[offset + 4] = vIndex + size + 1;
+            indices[offset + 5] = vIndex + size + 2;
+        }
+        mesh.SetIndices(indices,MeshTopology.Triangles,0);
+        mesh.UploadMeshData(false);
+        return mesh;
+    }
+
+    RenderTexture CreateRenderTextureWithMipTextures(Texture2D[] mipmaps,RenderTextureFormat format){
+        var mip0 = mipmaps[0];
+        RenderTextureDescriptor descriptor = new RenderTextureDescriptor(mip0.width,
+            mip0.height, format, 0, mipmaps.Length);
+        descriptor.autoGenerateMips = false;
+        descriptor.useMipMap = true;
+        RenderTexture rt = new RenderTexture(descriptor);
+        rt.filterMode = mip0.filterMode;
+        rt.Create();
+        for(var i = 0; i < mipmaps.Length; ++i){
+            Graphics.CopyTexture(mipmaps[i], 0, 0, rt, 0, i);
+        }
+        return rt;
+    }
 }

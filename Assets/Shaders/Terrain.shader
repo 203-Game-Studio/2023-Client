@@ -3,6 +3,7 @@ Shader "John/Terrain"
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+        _HeightMap ("Texture", 2D) = "white" {}
     }
     SubShader
     {
@@ -39,6 +40,8 @@ Shader "John/Terrain"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            sampler2D _HeightMap;
+            uniform float3 _WorldSize;
 
             v2f vert (appdata v)
             {
@@ -49,6 +52,11 @@ Shader "John/Terrain"
                 float scale = pow(2,lod);
                 v.vertex.xz *= scale;
                 v.vertex.xz += patch.position;
+
+                float2 heightUV = (v.vertex.xz + (_WorldSize.xz * 0.5) + 0.5) / (_WorldSize.xz + 1);
+                float height = tex2Dlod(_HeightMap, float4(heightUV,0,0)).r;
+                v.vertex.y = height * _WorldSize.y;
+
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = v.uv;
                 o.color = lerp(float4(1,1,1,1),float4(0,0,0,1),lod/5.0);
