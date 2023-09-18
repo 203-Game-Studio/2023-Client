@@ -4,6 +4,7 @@ Shader "John/Terrain"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _HeightMap ("Texture", 2D) = "white" {}
+        _NormalMap ("Texture", 2D) = "white" {}
     }
     SubShader
     {
@@ -17,6 +18,7 @@ Shader "John/Terrain"
             #pragma fragment frag
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct RenderPatch{
                 float2 position;
@@ -40,8 +42,23 @@ Shader "John/Terrain"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            sampler2D _NormalMap;
             sampler2D _HeightMap;
             uniform float3 _WorldSize;
+            float4x4 _WorldToNormalMapMatrix;
+
+            float3 TransformNormalToWorldSpace(float3 normal){
+                return SafeNormalize(mul(normal,(float3x3)_WorldToNormalMapMatrix));
+            }
+
+
+            float3 SampleNormal(float2 uv){
+                float3 normal;
+                normal.xz = tex2Dlod(_NormalMap, float4(uv, 0, 0)).xy * 2 - 1;
+                normal.y = sqrt(max(0, 1 - dot(normal.xz, normal.xz)));
+                normal = TransformNormalToWorldSpace(normal);
+                return normal;
+            }
 
             v2f vert (appdata v)
             {
@@ -57,9 +74,13 @@ Shader "John/Terrain"
                 float height = tex2Dlod(_HeightMap, float4(heightUV,0,0)).r;
                 v.vertex.y = height * _WorldSize.y;
 
+                float3 normal = SampleNormal(heightUV);
+                Light light = GetMainLight();
+                o.color = max(0.05,dot(light.direction,normal));
+
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = v.uv;
-                o.color = lerp(float4(1,1,1,1),float4(0,0,0,1),lod/5.0);
+                //o.color = lerp(float4(1,1,1,1),float4(0,0,0,1),lod/5.0);
 
                 return o;
             }

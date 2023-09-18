@@ -46,7 +46,10 @@ public class GPUTerrain : MonoBehaviour
     }
 
     [SerializeField]
-    Texture2D heightMap;
+    private Texture2D heightMap;
+
+    [SerializeField]
+    private Texture2D normalMap;
 
     [SerializeField]
     Texture2D[] _minMaxHeightMaps;
@@ -122,7 +125,9 @@ public class GPUTerrain : MonoBehaviour
         terrainMat = new Material(Shader.Find("John/Terrain"));
         terrainMat.SetBuffer("PatchList", culledPatchBuffer);
         terrainMat.SetTexture("_HeightMap", heightMap);
+        terrainMat.SetTexture("_NormalMap", normalMap);
         terrainMat.SetVector("_WorldSize", worldSize);
+        terrainMat.SetMatrix("_WorldToNormalMapMatrix",Matrix4x4.Scale(worldSize).inverse);
     }
 
     void Update()
