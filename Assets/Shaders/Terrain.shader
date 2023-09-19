@@ -22,7 +22,9 @@ Shader "John/Terrain"
 
             struct RenderPatch{
                 float2 position;
+                float2 minMaxHeight;
                 uint lod;
+                //uint4 lodTrans;
             };
             StructuredBuffer<RenderPatch> PatchList;
 

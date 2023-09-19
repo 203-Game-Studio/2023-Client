@@ -27,6 +27,8 @@ public class GPUTerrain : MonoBehaviour
     const int MAX_LOD_NODE_COUNT = 5;
     const uint MAX_NODE_ID = 34124;
     Vector3 worldSize = new Vector3(10240,2048,10240);
+    Vector4[] cameraFrustumPlanesVec = new Vector4[6];
+    Plane[] cameraFrustumPlanes = new Plane[6];
 
     Camera mainCamera;
     
@@ -34,6 +36,7 @@ public class GPUTerrain : MonoBehaviour
     static readonly int lodLevelID = Shader.PropertyToID("_LodLevel");
     static readonly int nodeListAID = Shader.PropertyToID("_NodeListA");
     static readonly int nodeListBID = Shader.PropertyToID("_NodeListB");
+    static readonly int cameraFrustumPlanesID = Shader.PropertyToID("_CameraFrustumPlanes");
 
     static Mesh _patchMesh;
     static Mesh patchMesh{
@@ -78,7 +81,7 @@ public class GPUTerrain : MonoBehaviour
         indirectArgsBuffer.SetData(new uint[]{1, 1, 1});
         finalNodeListBuffer = new ComputeBuffer(maxNodeBufferSize, 12, ComputeBufferType.Append);
         nodeDescriptorsBuffer = new ComputeBuffer((int)(MAX_NODE_ID + 1), 4);
-        culledPatchBuffer = new ComputeBuffer(maxNodeBufferSize * 64, 3 * 4, ComputeBufferType.Append);
+        culledPatchBuffer = new ComputeBuffer(maxNodeBufferSize * 64, 5 * 4, ComputeBufferType.Append);
         patchIndirectArgs = new ComputeBuffer(5, 4, ComputeBufferType.IndirectArguments);
         patchIndirectArgs.SetData(new uint[]{patchMesh.GetIndexCount(0),0,0,0,0});
 
@@ -88,6 +91,7 @@ public class GPUTerrain : MonoBehaviour
         terrainCS.SetBuffer(buildPatchesKernel, "_CulledPatchList", culledPatchBuffer);
         terrainCS.SetBuffer(buildPatchesKernel, "_RenderNodeList", finalNodeListBuffer);
         terrainCS.SetTexture(buildPatchesKernel, "_MinMaxHeightTexture", minMaxHeightMap);
+        terrainCS.SetInt("_BoundsHeightRedundance", 5);
         terrainCS.SetVector("_WorldSize", worldSize);
 
         float wSize = worldSize.x;
@@ -138,6 +142,14 @@ public class GPUTerrain : MonoBehaviour
         cmdBuffer.SetBufferCounterValue(nodeListBBuffer, 0);
         cmdBuffer.SetBufferCounterValue(finalNodeListBuffer, 0);
         cmdBuffer.SetBufferCounterValue(culledPatchBuffer, 0);
+
+        GeometryUtility.CalculateFrustumPlanes(mainCamera, cameraFrustumPlanes);
+        for(var i = 0; i < cameraFrustumPlanes.Length; i ++){
+            Vector4 v = (Vector4)cameraFrustumPlanes[i].normal;
+            v.w = cameraFrustumPlanes[i].distance;
+            cameraFrustumPlanesVec[i] = v;
+        }
+        terrainCS.SetVectorArray(cameraFrustumPlanesID, cameraFrustumPlanesVec);
 
         cmdBuffer.SetComputeVectorParam(terrainCS, cameraPosWSID, mainCamera.transform.position);
 

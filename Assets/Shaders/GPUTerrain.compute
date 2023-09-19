@@ -9,7 +9,14 @@ struct NodeDescriptor{
 
 struct RenderPatch{
     float2 position;
+    float2 minMaxHeight;
     uint lod;
+    //uint4 lodTrans;
+};
+
+struct Bound{
+    float3 min;
+    float3 max;
 };
 
 Texture2D<float4> _MinMaxHeightTexture;
@@ -24,6 +31,7 @@ StructuredBuffer<uint3> _RenderNodeList;
 uniform uint _LodLevel;
 uniform float3 _CameraPosWS;
 uniform float3 _WorldSize;
+uniform int _BoundsHeightRedundance;
 
 //x为nodeSize(m)
 //y等于nodeSize/16
@@ -32,6 +40,8 @@ uniform float3 _WorldSize;
 uniform float4 _NodeParams[6];
 
 uniform uint _NodeIDOffsets[6];
+
+uniform float4 _CameraFrustumPlanes[6];
 
 float3 GetNodePositionWS(uint2 node){
     float nodeMeterSize = _NodeParams[_LodLevel].x;
@@ -89,11 +99,53 @@ RenderPatch CreatePatch(uint3 node, uint2 patchOffset){
     float nodeMeterSize = _NodeParams[lod].x;
     float patchMeterSize = nodeMeterSize / PATCH_COUNT_PER_NODE;
     float2 nodePositionWS = GetNodePositionWS2(node.xy, lod);
+    uint2 patchLoc = node.xy * PATCH_COUNT_PER_NODE + patchOffset;
+    float2 minMaxHeight = _MinMaxHeightTexture.mips[lod][patchLoc].rg * _WorldSize.y 
+        + float2(-_BoundsHeightRedundance, _BoundsHeightRedundance);
 
     RenderPatch patch;
     patch.lod = lod;
     patch.position = nodePositionWS + (patchOffset - (PATCH_COUNT_PER_NODE - 1) * 0.5) * patchMeterSize;
+    patch.minMaxHeight = minMaxHeight;
     return patch;
+}
+
+Bound GetBound(RenderPatch patch){
+    float halfSize = _NodeParams[patch.lod].y;
+    Bound bound;
+    float3 min, max;
+    min.xz = patch.position - halfSize;
+    max.xz = patch.position + halfSize;
+    min.y = patch.minMaxHeight.x;
+    max.y = patch.minMaxHeight.y;
+
+    bound.min = min;
+    bound.max = max;
+    return bound;
+}
+
+bool PlaneTest(float4 plane,float3 position){
+    return dot(plane.xyz, position) + plane.w < 0; 
+}
+
+bool BoundPlaneTest(float4 plane, Bound bound){
+    return PlaneTest(plane, bound.min) &&
+           PlaneTest(plane, bound.max) &&
+           PlaneTest(plane, float3(bound.min.x, bound.min.y, bound.max.z)) &&
+           PlaneTest(plane, float3(bound.min.x, bound.max.y, bound.min.z)) &&
+           PlaneTest(plane, float3(bound.min.x, bound.max.y, bound.max.z)) &&
+           PlaneTest(plane, float3(bound.max.x, bound.min.y, bound.max.z)) &&
+           PlaneTest(plane, float3(bound.max.x, bound.max.y, bound.min.z)) &&
+           PlaneTest(plane, float3(bound.max.x, bound.min.y, bound.min.z));
+}
+
+bool FrustumCull(float4 planes[6], Bound bound){
+    return BoundPlaneTest(planes[0], bound) || 
+           BoundPlaneTest(planes[1], bound) || 
+           BoundPlaneTest(planes[2], bound) || 
+           BoundPlaneTest(planes[3], bound) || 
+           BoundPlaneTest(planes[4], bound) || 
+           BoundPlaneTest(planes[5], bound);
 }
 
 [numthreads(8,8,1)]
@@ -101,5 +153,12 @@ void BuildPatches(uint3 id : SV_DispatchThreadID, uint3 groupId:SV_GroupID, uint
     uint3 node = _RenderNodeList[groupId.x];
     uint2 patchOffset = groupThreadId.xy;
     RenderPatch patch = CreatePatch(node, patchOffset);
+
+    Bound bound = GetBound(patch);
+    
+    if(FrustumCull(_CameraFrustumPlanes, bound)){
+        return;
+    }
+
     _CulledPatchList.Append(patch);
 }
