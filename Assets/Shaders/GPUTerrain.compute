@@ -41,7 +41,7 @@ uniform float4 _NodeParams[6];
 
 uniform uint _NodeIDOffsets[6];
 
-uniform float4 _CameraFrustumPlanes[6];
+uniform float4x4 _VPMatrix;
 
 float3 GetNodePositionWS(uint2 node){
     float nodeMeterSize = _NodeParams[_LodLevel].x;
@@ -124,28 +124,43 @@ Bound GetBound(RenderPatch patch){
     return bound;
 }
 
-bool PlaneTest(float4 plane,float3 position){
-    return dot(plane.xyz, position) + plane.w < 0; 
+bool IsInClipSpace(float4 positionCS)
+{
+    return positionCS.x > -positionCS.w && positionCS.x < positionCS.w &&
+        positionCS.y > -positionCS.w && positionCS.y < positionCS.w &&
+        positionCS.z > 0 && positionCS.z < positionCS.w;
 }
 
-bool BoundPlaneTest(float4 plane, Bound bound){
-    return PlaneTest(plane, bound.min) &&
-           PlaneTest(plane, bound.max) &&
-           PlaneTest(plane, float3(bound.min.x, bound.min.y, bound.max.z)) &&
-           PlaneTest(plane, float3(bound.min.x, bound.max.y, bound.min.z)) &&
-           PlaneTest(plane, float3(bound.min.x, bound.max.y, bound.max.z)) &&
-           PlaneTest(plane, float3(bound.max.x, bound.min.y, bound.max.z)) &&
-           PlaneTest(plane, float3(bound.max.x, bound.max.y, bound.min.z)) &&
-           PlaneTest(plane, float3(bound.max.x, bound.min.y, bound.min.z));
-}
+bool FrustumCull(Bound bound){
+    float4 boundVerts[8];
+    boundVerts[0] = float4(bound.min, 1);
+    boundVerts[1] = float4(bound.max, 1);
+    boundVerts[2] = float4(bound.max.x, bound.max.y, bound.min.z, 1);
+    boundVerts[3] = float4(bound.max.x, bound.min.y, bound.max.z, 1);
+    boundVerts[4] = float4(bound.max.x, bound.min.y, bound.min.z, 1);
+    boundVerts[5] = float4(bound.min.x, bound.max.y, bound.max.z, 1);
+    boundVerts[6] = float4(bound.min.x, bound.max.y, bound.min.z, 1);
+    boundVerts[7] = float4(bound.min.x, bound.min.y, bound.max.z, 1);
 
-bool FrustumCull(float4 planes[6], Bound bound){
-    return BoundPlaneTest(planes[0], bound) || 
-           BoundPlaneTest(planes[1], bound) || 
-           BoundPlaneTest(planes[2], bound) || 
-           BoundPlaneTest(planes[3], bound) || 
-           BoundPlaneTest(planes[4], bound) || 
-           BoundPlaneTest(planes[5], bound);
+    float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;
+    //视椎剔除
+    bool isInClipSpace = false;
+    for (int i = 0; i < 8; i++)
+    {
+        float4 positionCS = mul(_VPMatrix, boundVerts[i]);
+        if (!isInClipSpace && IsInClipSpace(positionCS))
+            isInClipSpace = true;
+
+        //ndc的AABB
+        float3 ndc = positionCS.xyz / positionCS.w;
+        if (minX > ndc.x) minX = ndc.x;
+        if (minY > ndc.y) minY = ndc.y;
+        if (minZ > ndc.z) minZ = ndc.z;
+        if (maxX < ndc.x) maxX = ndc.x;
+        if (maxY < ndc.y) maxY = ndc.y;
+        if (maxZ < ndc.z) maxZ = ndc.z;
+    }
+    return !isInClipSpace;
 }
 
 [numthreads(8,8,1)]
@@ -156,7 +171,7 @@ void BuildPatches(uint3 id : SV_DispatchThreadID, uint3 groupId:SV_GroupID, uint
 
     Bound bound = GetBound(patch);
     
-    if(FrustumCull(_CameraFrustumPlanes, bound)){
+    if(FrustumCull(bound)){
         return;
     }
 

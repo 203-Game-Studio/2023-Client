@@ -161,7 +161,7 @@ public class TerrainFeature : ScriptableRendererFeature
         static readonly int lodLevelID = Shader.PropertyToID("_LodLevel");
         static readonly int nodeListAID = Shader.PropertyToID("_NodeListA");
         static readonly int nodeListBID = Shader.PropertyToID("_NodeListB");
-        static readonly int cameraFrustumPlanesID = Shader.PropertyToID("_CameraFrustumPlanes");
+        static readonly int vpMatrixID = Shader.PropertyToID("_VPMatrix");
 
         private Mesh _patchMesh;
         private Mesh patchMesh{
@@ -269,13 +269,8 @@ public class TerrainFeature : ScriptableRendererFeature
                 cmd.SetBufferCounterValue(finalNodeListBuffer, 0);
                 cmd.SetBufferCounterValue(culledPatchBuffer, 0);
 
-                GeometryUtility.CalculateFrustumPlanes(mainCamera, cameraFrustumPlanes);
-                for(var i = 0; i < cameraFrustumPlanes.Length; i ++){
-                    Vector4 v = (Vector4)cameraFrustumPlanes[i].normal;
-                    v.w = cameraFrustumPlanes[i].distance;
-                    cameraFrustumPlanesVec[i] = v;
-                }
-                terrainCS.SetVectorArray(cameraFrustumPlanesID, cameraFrustumPlanesVec);
+                Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
+                terrainCS.SetMatrix(vpMatrixID, vpMatrix);
 
                 cmd.SetComputeVectorParam(terrainCS, cameraPosWSID, mainCamera.transform.position);
 
