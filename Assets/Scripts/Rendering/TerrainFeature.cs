@@ -74,7 +74,7 @@ public class TerrainFeature : ScriptableRendererFeature
         const string bufferName = "Depth Gen Buffer";
 
         public DepthGeneratorPass() {
-            renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
+            renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
             depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
             //Shader.Find如果没引用打包会打不进去，后面有时间改下
             depthTextureMaterial = new Material(Shader.Find("John/DepthGeneratorShader"));
