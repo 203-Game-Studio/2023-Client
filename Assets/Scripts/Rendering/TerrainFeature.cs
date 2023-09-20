@@ -162,6 +162,8 @@ public class TerrainFeature : ScriptableRendererFeature
         static readonly int nodeListAID = Shader.PropertyToID("_NodeListA");
         static readonly int nodeListBID = Shader.PropertyToID("_NodeListB");
         static readonly int vpMatrixID = Shader.PropertyToID("_VPMatrix");
+        static readonly int depthTextureSizeID = Shader.PropertyToID("_DepthTextureSize");
+        static readonly int hiZTextureID = Shader.PropertyToID("_HiZTexture");
 
         private Mesh _patchMesh;
         private Mesh patchMesh{
@@ -269,9 +271,6 @@ public class TerrainFeature : ScriptableRendererFeature
                 cmd.SetBufferCounterValue(finalNodeListBuffer, 0);
                 cmd.SetBufferCounterValue(culledPatchBuffer, 0);
 
-                Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
-                terrainCS.SetMatrix(vpMatrixID, vpMatrix);
-
                 cmd.SetComputeVectorParam(terrainCS, cameraPosWSID, mainCamera.transform.position);
 
                 cmd.CopyCounterValue(maxNodeList, indirectArgsBuffer, 0);
@@ -293,6 +292,11 @@ public class TerrainFeature : ScriptableRendererFeature
                 }
 
                 //生成Patch
+                terrainCS.SetInt(depthTextureSizeID, depthTextureSize);
+                terrainCS.SetTexture(buildPatchesKernel, hiZTextureID, depthTexture);
+                Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
+                terrainCS.SetMatrix(vpMatrixID, vpMatrix);
+
                 cmd.CopyCounterValue(finalNodeListBuffer, indirectArgsBuffer, 0);
                 cmd.DispatchCompute(terrainCS, buildPatchesKernel, indirectArgsBuffer,0);
                 cmd.CopyCounterValue(culledPatchBuffer, patchIndirectArgs,4);

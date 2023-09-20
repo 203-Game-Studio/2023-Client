@@ -43,6 +43,9 @@ uniform uint _NodeIDOffsets[6];
 
 uniform float4x4 _VPMatrix;
 
+uniform uint _DepthTextureSize;
+uniform Texture2D _HiZTexture;
+
 float3 GetNodePositionWS(uint2 node){
     float nodeMeterSize = _NodeParams[_LodLevel].x;
     float nodeCount = _NodeParams[_LodLevel].z;
@@ -131,7 +134,14 @@ bool IsInClipSpace(float4 positionCS)
         positionCS.z > 0 && positionCS.z < positionCS.w;
 }
 
-bool FrustumCull(Bound bound){
+[numthreads(8,8,1)]
+void BuildPatches(uint3 id : SV_DispatchThreadID, uint3 groupId:SV_GroupID, uint3 groupThreadId:SV_GroupThreadID){
+    uint3 node = _RenderNodeList[groupId.x];
+    uint2 patchOffset = groupThreadId.xy;
+    RenderPatch patch = CreatePatch(node, patchOffset);
+
+    Bound bound = GetBound(patch);
+    
     float4 boundVerts[8];
     boundVerts[0] = float4(bound.min, 1);
     boundVerts[1] = float4(bound.max, 1);
@@ -160,20 +170,33 @@ bool FrustumCull(Bound bound){
         if (maxY < ndc.y) maxY = ndc.y;
         if (maxZ < ndc.z) maxZ = ndc.z;
     }
-    return !isInClipSpace;
-}
-
-[numthreads(8,8,1)]
-void BuildPatches(uint3 id : SV_DispatchThreadID, uint3 groupId:SV_GroupID, uint3 groupThreadId:SV_GroupThreadID){
-    uint3 node = _RenderNodeList[groupId.x];
-    uint2 patchOffset = groupThreadId.xy;
-    RenderPatch patch = CreatePatch(node, patchOffset);
-
-    Bound bound = GetBound(patch);
-    
-    if(FrustumCull(bound)){
+    if (!isInClipSpace)
         return;
+
+    //hiz遮挡剔除
+    float2 uvLeftBottom = float2(minX, minY) * 0.5f + 0.5f;
+    float2 uvRightTop = float2(maxX, maxY) * 0.5f + 0.5f;
+    float depth = maxZ;
+
+    uint mipmapLevel = (uint)clamp(log2(max(maxX - minX, maxY - minY) * 0.5f * _DepthTextureSize), 0, log2(_DepthTextureSize) - 4);
+    uint size = _DepthTextureSize / (1 << mipmapLevel);
+
+    uint2 pixelLeftBottom = uint2(clamp(uvLeftBottom.x * size, 0, size - 1), clamp(uvLeftBottom.y * size, 0, size - 1));
+    uint2 pixelRightTop = uint2(clamp(uvRightTop.x * size, 0, size - 1), clamp(uvRightTop.y * size, 0, size - 1));
+    
+    float depthInTexture = _HiZTexture.mips[mipmapLevel][pixelLeftBottom].r;
+    if (pixelLeftBottom.x < pixelRightTop.x && pixelLeftBottom.y < pixelRightTop.y) {
+        depthInTexture = min(min(depthInTexture, _HiZTexture.mips[mipmapLevel][pixelRightTop].r),
+            min(_HiZTexture.mips[mipmapLevel][int2(pixelLeftBottom.x, pixelRightTop.y)].r, 
+            _HiZTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r));
     }
+    else if (pixelLeftBottom.x < pixelRightTop.x)
+        depthInTexture = min(depthInTexture, _HiZTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r);
+    else if (pixelLeftBottom.y < pixelRightTop.y)
+        depthInTexture = min(depthInTexture, _HiZTexture.mips[mipmapLevel][int2(pixelLeftBottom.x, pixelRightTop.y)].r);
+
+    if (depthInTexture > depth)
+        return;
 
     _CulledPatchList.Append(patch);
 }
