@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-public class GrassRenderFeature : ScriptableRendererFeature
+public class GrassFeature : ScriptableRendererFeature
 {
     private GrassRenderPass grassPass = null;
     private DepthGeneratorPass depthPass = null;
