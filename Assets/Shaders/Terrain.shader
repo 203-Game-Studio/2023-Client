@@ -8,7 +8,7 @@ Shader "John/Terrain"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" "LightMode" = "UniversalForward"}
+        Tags { "RenderType" = "Opaque" "LightMode" = "UniversalForward"}
         LOD 100
 
         Pass
@@ -24,7 +24,7 @@ Shader "John/Terrain"
                 float2 position;
                 float2 minMaxHeight;
                 uint lod;
-                //uint4 lodTrans;
+                uint4 lodTrans;
             };
             StructuredBuffer<RenderPatch> PatchList;
 
@@ -62,34 +62,92 @@ Shader "John/Terrain"
                 return normal;
             }
 
-            v2f vert (appdata v)
-            {
-                v2f o;
+            //Patch为16x16的Mesh
+            #define PATCH_MESH_GRID_COUNT 16
+            //Node为8x8个Patch
+            #define PATCH_MESH_SIZE 8
+            //Patch格子大小为0.5x0.5
+            #define PATCH_MESH_GRID_SIZE 0.5
+            //修复接缝
+            void FixLODConnectSeam(inout float4 vertex, inout float2 uv, RenderPatch patch){
+                uint4 lodTrans = patch.lodTrans;
+                uint2 vertexIndex = floor((vertex.xz + PATCH_MESH_SIZE * 0.5 + 0.01) / PATCH_MESH_GRID_SIZE);
+                float uvGridStrip = 1.0/PATCH_MESH_GRID_COUNT;
 
-                RenderPatch patch = PatchList[v.instanceID];
+                uint lodDelta = lodTrans.x;
+                if(lodDelta > 0 && vertexIndex.x == 0){
+                    uint gridStripCount = pow(2,lodDelta);
+                    uint modIndex = vertexIndex.y % gridStripCount;
+                    if(modIndex != 0){
+                        vertex.z -= PATCH_MESH_GRID_SIZE * modIndex;
+                        uv.y -= uvGridStrip * modIndex;
+                        return;
+                    }
+                }
+
+                lodDelta = lodTrans.y;
+                if(lodDelta > 0 && vertexIndex.y == 0){
+                    uint gridStripCount = pow(2,lodDelta);
+                    uint modIndex = vertexIndex.x % gridStripCount;
+                    if(modIndex != 0){
+                        vertex.x -= PATCH_MESH_GRID_SIZE * modIndex;
+                        uv.x -= uvGridStrip * modIndex;
+                        return;
+                    }
+                }
+
+                lodDelta = lodTrans.z;
+                if(lodDelta > 0 && vertexIndex.x == PATCH_MESH_GRID_COUNT){
+                    uint gridStripCount = pow(2,lodDelta);
+                    uint modIndex = vertexIndex.y % gridStripCount;
+                    if(modIndex != 0){
+                        vertex.z += PATCH_MESH_GRID_SIZE * (gridStripCount - modIndex);
+                        uv.y += uvGridStrip * (gridStripCount- modIndex);
+                        return;
+                    }
+                }
+
+                lodDelta = lodTrans.w;
+                if(lodDelta > 0 && vertexIndex.y == PATCH_MESH_GRID_COUNT){
+                    uint gridStripCount = pow(2,lodDelta);
+                    uint modIndex = vertexIndex.x % gridStripCount;
+                    if(modIndex != 0){
+                        vertex.x += PATCH_MESH_GRID_SIZE * (gridStripCount- modIndex);
+                        uv.x += uvGridStrip * (gridStripCount- modIndex);
+                        return;
+                    }
+                }
+            }
+
+            v2f vert (appdata input)
+            {
+                v2f output;
+
+                RenderPatch patch = PatchList[input.instanceID];
+                FixLODConnectSeam(input.vertex, input.uv, patch);
                 uint lod = patch.lod;
                 float scale = pow(2,lod);
-                v.vertex.xz *= scale;
-                v.vertex.xz += patch.position;
+                input.vertex.xz *= scale;
+                input.vertex.xz += patch.position;
 
-                float2 heightUV = (v.vertex.xz + (_WorldSize.xz * 0.5) + 0.5) / (_WorldSize.xz + 1);
+                float2 heightUV = (input.vertex.xz + (_WorldSize.xz * 0.5) + 0.5) / (_WorldSize.xz + 1);
                 float height = tex2Dlod(_HeightMap, float4(heightUV,0,0)).r;
-                v.vertex.y = height * _WorldSize.y;
+                input.vertex.y = height * _WorldSize.y;
 
                 float3 normal = SampleNormal(heightUV);
                 Light light = GetMainLight();
-                o.color = max(0.05,dot(light.direction,normal));
+                output.color = max(0.05,dot(light.direction, normal));
 
-                o.vertex = TransformObjectToHClip(v.vertex.xyz);
-                o.uv = v.uv;
-                //o.color = lerp(float4(1,1,1,1),float4(0,0,0,1),lod/5.0);
+                output.vertex = TransformObjectToHClip(input.vertex.xyz);
+                output.uv = input.uv;
+                //output.color = lerp(float4(1,1,1,1),float4(0,0,0,1),lod/5.0);
 
-                return o;
+                return output;
             }
 
-            half4 frag (v2f i) : SV_Target
+            half4 frag (v2f input) : SV_Target
             {
-                return i.color;
+                return input.color;
             }
             ENDHLSL
         }

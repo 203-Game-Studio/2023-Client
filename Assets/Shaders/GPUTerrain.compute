@@ -1,7 +1,10 @@
 #pragma kernel TraverseQuadTree
+#pragma kernel BuildLodMap
 #pragma kernel BuildPatches
 
 #define PATCH_COUNT_PER_NODE 8
+#define MAX_LOD 5
+#define SECTOR_COUNT 160
 
 struct NodeDescriptor{
     uint branch;
@@ -11,7 +14,7 @@ struct RenderPatch{
     float2 position;
     float2 minMaxHeight;
     uint lod;
-    //uint4 lodTrans;
+    uint4 lodTrans;
 };
 
 struct Bound{
@@ -20,13 +23,13 @@ struct Bound{
 };
 
 Texture2D<float4> _MinMaxHeightTexture;
-
 ConsumeStructuredBuffer<uint2> _NodeListA;
 AppendStructuredBuffer<uint2> _NodeListB;
 AppendStructuredBuffer<uint3> _FinalNodeList;
 RWStructuredBuffer<NodeDescriptor> _NodeDescriptors;
 AppendStructuredBuffer<RenderPatch> _CulledPatchList;
 StructuredBuffer<uint3> _RenderNodeList;
+RWTexture2D<float4> _LodMap;
 
 uniform uint _LodLevel;
 uniform float3 _CameraPosWS;
@@ -71,6 +74,10 @@ uint GetNodeID(uint2 node){
     return _NodeIDOffsets[_LodLevel] + node.y * _NodeParams[_LodLevel].z + node.x;
 }
 
+uint GetNodeID(uint2 node, uint mip){
+    return _NodeIDOffsets[mip] + node.y * _NodeParams[mip].z + node.x;
+}
+
 [numthreads(1, 1, 1)]
 void TraverseQuadTree(uint3 id : SV_DispatchThreadID)
 {
@@ -88,6 +95,23 @@ void TraverseQuadTree(uint3 id : SV_DispatchThreadID)
         desc.branch = 0;
     }
     _NodeDescriptors[nodeID] = desc;
+}
+
+[numthreads(8,8,1)]
+void BuildLodMap(uint3 id : SV_DispatchThreadID){
+    uint2 sector = id.xy;
+    [unroll]
+    for(uint lod = MAX_LOD; lod >= 0; lod --){
+        uint sectorCount = (uint)_NodeParams[lod].w;
+        uint2 node = sector / sectorCount;
+        uint nodeId = GetNodeID(node, lod);
+        NodeDescriptor desc = _NodeDescriptors[nodeId];
+        if(desc.branch == 0){
+            _LodMap[sector] = lod / (float)MAX_LOD;
+            return;
+        }
+    }
+    _LodMap[sector] = 0;
 }
 
 float2 GetNodePositionWS2(uint2 node,uint mip){
@@ -110,6 +134,7 @@ RenderPatch CreatePatch(uint3 node, uint2 patchOffset){
     patch.lod = lod;
     patch.position = nodePositionWS + (patchOffset - (PATCH_COUNT_PER_NODE - 1) * 0.5) * patchMeterSize;
     patch.minMaxHeight = minMaxHeight;
+    patch.lodTrans = 0;
     return patch;
 }
 
@@ -125,6 +150,41 @@ Bound GetBound(RenderPatch patch){
     bound.min = min;
     bound.max = max;
     return bound;
+}
+
+uint4 GetSectorBounds(uint3 node){
+    uint sectorCountPerNode = (uint)_NodeParams[node.z].w;
+    uint2 sectorMin = node.xy * sectorCountPerNode;
+    return uint4(sectorMin, sectorMin + sectorCountPerNode-1);
+}
+
+uint GetLod(uint2 sector){
+    if(sector.x < 0 || sector.y < 0 || sector.x >= SECTOR_COUNT || sector.y >= SECTOR_COUNT){
+        return 0;
+    }
+    return round(_LodMap[sector].r * MAX_LOD);
+}
+
+void SetLodTrans(inout RenderPatch patch, uint3 node, uint2 patchOffset){
+    uint lod = node.z;
+    uint4 sectorBounds = GetSectorBounds(node);
+    int4 lodTrans = int4(0,0,0,0);
+    if(patchOffset.x == 0){
+        lodTrans.x = GetLod(sectorBounds.xy + int2(-1,0)) - lod;
+    }
+
+    if(patchOffset.y == 0){
+        lodTrans.y = GetLod(sectorBounds.xy + int2(0,-1)) - lod;
+    }
+
+    if(patchOffset.x == 7){
+        lodTrans.z = GetLod(sectorBounds.zw + int2(1,0)) - lod;
+    }
+
+    if(patchOffset.y == 7){
+        lodTrans.w = GetLod(sectorBounds.zw + int2(0,1)) - lod;
+    }
+    patch.lodTrans = (uint4)max(0, lodTrans);
 }
 
 bool IsInClipSpace(float4 positionCS)
@@ -197,6 +257,8 @@ void BuildPatches(uint3 id : SV_DispatchThreadID, uint3 groupId:SV_GroupID, uint
 
     if (depthInTexture > depth)
         return;
+
+    SetLodTrans(patch, node, patchOffset);
 
     _CulledPatchList.Append(patch);
 }

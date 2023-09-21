@@ -70,12 +70,12 @@ public class TerrainFeature : ScriptableRendererFeature
     public class DepthGeneratorPass : ScriptableRenderPass {
         RTHandle depthTexture;
         Material depthTextureMaterial;
-        int depthTextureShaderID;
+        //int depthTextureShaderID;
         const string bufferName = "Depth Gen Buffer";
 
         public DepthGeneratorPass() {
             renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
-            depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
+            //depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
             //Shader.Find如果没引用打包会打不进去，后面有时间改下
             depthTextureMaterial = new Material(Shader.Find("John/DepthGeneratorShader"));
         }
@@ -129,10 +129,12 @@ public class TerrainFeature : ScriptableRendererFeature
         private const string bufferName = "Terrain Pass";
 
         private RTHandle depthTexture;
+        private RenderTexture lodMap;
 
         private ComputeShader terrainCS;
         int traverseQuadTreeKernel;
         int buildPatchesKernel;
+        int buildLodMapKernel;
         
         ComputeBuffer indirectArgsBuffer;
         ComputeBuffer nodeListABuffer;
@@ -196,6 +198,7 @@ public class TerrainFeature : ScriptableRendererFeature
             mainCamera = Camera.main;
             
             traverseQuadTreeKernel = terrainCS.FindKernel("TraverseQuadTree");
+            buildLodMapKernel = terrainCS.FindKernel("BuildLodMap");
             buildPatchesKernel = terrainCS.FindKernel("BuildPatches");
 
             nodeListABuffer = new ComputeBuffer(tempNodeBufferSize, 8, ComputeBufferType.Append);
@@ -204,16 +207,24 @@ public class TerrainFeature : ScriptableRendererFeature
             indirectArgsBuffer.SetData(new uint[]{1, 1, 1});
             finalNodeListBuffer = new ComputeBuffer(maxNodeBufferSize, 12, ComputeBufferType.Append);
             nodeDescriptorsBuffer = new ComputeBuffer((int)(MAX_NODE_ID + 1), 4);
-            culledPatchBuffer = new ComputeBuffer(maxNodeBufferSize * 64, 5 * 4, ComputeBufferType.Append);
+            culledPatchBuffer = new ComputeBuffer(maxNodeBufferSize * 64, 9 * 4, ComputeBufferType.Append);
             patchIndirectArgs = new ComputeBuffer(5, 4, ComputeBufferType.IndirectArguments);
             patchIndirectArgs.SetData(new uint[]{patchMesh.GetIndexCount(0),0,0,0,0});
+
+            lodMap = CreateLODMap(160);
 
             terrainCS.SetBuffer(traverseQuadTreeKernel, "_FinalNodeList", finalNodeListBuffer);
             terrainCS.SetTexture(traverseQuadTreeKernel, "_MinMaxHeightTexture", minMaxHeightMap);
             terrainCS.SetBuffer(traverseQuadTreeKernel, "_NodeDescriptors", nodeDescriptorsBuffer);
+
+            terrainCS.SetTexture(buildLodMapKernel, "_LodMap", lodMap);
+            terrainCS.SetBuffer(buildLodMapKernel, "_NodeDescriptors", nodeDescriptorsBuffer);
+
+            terrainCS.SetTexture(buildPatchesKernel, "_LodMap", lodMap);
             terrainCS.SetBuffer(buildPatchesKernel, "_CulledPatchList", culledPatchBuffer);
             terrainCS.SetBuffer(buildPatchesKernel, "_RenderNodeList", finalNodeListBuffer);
             terrainCS.SetTexture(buildPatchesKernel, "_MinMaxHeightTexture", minMaxHeightMap);
+
             terrainCS.SetInt("_BoundsHeightRedundance", 5);
             terrainCS.SetVector("_WorldSize", worldSize);
 
@@ -290,6 +301,7 @@ public class TerrainFeature : ScriptableRendererFeature
                     nodeListA = nodeListB;
                     nodeListB = tempBuf;
                 }
+                cmd.DispatchCompute(terrainCS, buildLodMapKernel, 20, 20, 1);
 
                 //生成Patch
                 terrainCS.SetInt(depthTextureSizeID, depthTextureSize);
@@ -362,7 +374,7 @@ public class TerrainFeature : ScriptableRendererFeature
             return mesh;
         }
 
-        RenderTexture CreateRenderTextureWithMipTextures(Texture2D[] mipmaps,RenderTextureFormat format){
+        RenderTexture CreateRenderTextureWithMipTextures(Texture2D[] mipmaps, RenderTextureFormat format){
             var mip0 = mipmaps[0];
             RenderTextureDescriptor descriptor = new RenderTextureDescriptor(mip0.width,
                 mip0.height, format, 0, mipmaps.Length);
@@ -374,6 +386,16 @@ public class TerrainFeature : ScriptableRendererFeature
             for(var i = 0; i < mipmaps.Length; ++i){
                 Graphics.CopyTexture(mipmaps[i], 0, 0, rt, 0, i);
             }
+            return rt;
+        }
+
+        RenderTexture CreateLODMap(int size){
+            RenderTextureDescriptor descriptor = new RenderTextureDescriptor(size, size, RenderTextureFormat.R8,0,1);
+            descriptor.autoGenerateMips = false;
+            descriptor.enableRandomWrite = true;
+            RenderTexture rt = new RenderTexture(descriptor);
+            rt.filterMode = FilterMode.Point;
+            rt.Create();
             return rt;
         }
     }
