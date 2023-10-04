@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 [Serializable]
 public struct ClusterMesh{
@@ -13,6 +15,7 @@ public struct ClusterMesh{
 
 [Serializable]
 public struct ClusterObject{
+    public string name;
     public byte[] indexData;
     public byte[] vertexData;
     public ClusterMesh[] clusterMeshes;
@@ -69,6 +72,7 @@ public static class ClusterTool
         clusterObject.clusterMeshes = clusterMeshes;
         clusterObject.vertexData = StructToBytes(vertexDataList);
         clusterObject.indexData = StructToBytes(indexDataList);
+        clusterObject.name = "ClusterObject";
     }
 
     private static byte[] StructToBytes<T>(List<T> list) where T : struct {
@@ -88,5 +92,27 @@ public static class ClusterTool
         finally{
             Marshal.FreeHGlobal(buffer);
         }
+    }
+
+    public static void SaveClusterObjectToFile(ClusterObject clusterObject){
+        string filePath = $"{Application.dataPath}/Bytes/{clusterObject.name}_";
+        SaveBytes(clusterObject.vertexData, $"{filePath}VertexData.bytes");
+        SaveBytes(clusterObject.indexData, $"{filePath}IndexData.bytes");
+    }
+
+    private static void SaveBytes(byte[] bytes, string filePath){
+        FileStream fs = new FileStream(filePath, FileMode.Create);
+        fs.Write(bytes, 0, bytes.Length);
+        fs.Close();
+        fs.Dispose();
+    }
+
+    private static ClusterObject LoadClusterObjectFromFile(string name){
+        string filePath = $"{Application.dataPath}/Bytes/{name}_";
+        ClusterObject clusterObject = new ClusterObject();
+        clusterObject.vertexData = Addressables.LoadAssetAsync<TextAsset>($"{filePath}VertexData.bytes").WaitForCompletion().bytes;
+        clusterObject.indexData = Addressables.LoadAssetAsync<TextAsset>($"{filePath}IndexData.bytes").WaitForCompletion().bytes;
+        clusterObject.name = name;
+        return clusterObject;
     }
 }
