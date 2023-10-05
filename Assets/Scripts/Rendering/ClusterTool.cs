@@ -6,29 +6,31 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 
 [Serializable]
-public struct ClusterMesh{
+public struct ClusterInfo{
     public Vector3 localBoundMin;
     public Vector3 localBoundMax;
     public int indexStart;
+    public int vertexStart;
+    public int length;
     public Vector4 localCone;
 }
 
 [Serializable]
 public struct ClusterObject{
     public string name;
-    public byte[] indexData;
-    public byte[] vertexData;
-    public ClusterMesh[] clusterMeshes;
+    public int[] indexData;
+    public Vector3[] vertexData;
+    public ClusterInfo[] clusterInfos;
 }
 
 public static class ClusterTool
 {
-    public static void GenerateClusterMesh(Mesh mesh, ref ClusterObject clusterObject){
+    public static void BakeClusterInfoToFile(Mesh mesh){
         int[] triangles = mesh.GetTriangles(0);
         List<Vector3> vertices = new List<Vector3>();
         mesh.GetVertices(vertices);
         int clusterCount = Mathf.CeilToInt(triangles.Length / (3.0f * 64));
-        ClusterMesh[] clusterMeshes = new ClusterMesh[clusterCount];
+        List<ClusterInfo> clusterInfos = new List<ClusterInfo>(clusterCount);
         List<Vector3> vertexDataList = new List<Vector3>();
         List<int> indexDataList = new List<int>();
         int idxStart = 0;
@@ -59,20 +61,22 @@ public static class ClusterTool
                 tri[j] = vertexDic[vertices[tri[j]]];
             }
             var bounds = GeometryUtility.CalculateBounds(vert.ToArray(), Matrix4x4.identity);
-            vertexDataList.AddRange(vert);
+            ClusterInfo clusterInfo = new ClusterInfo();
+            clusterInfo.indexStart = idxStart;
+            clusterInfo.vertexStart = vertexDataList.Count;
+            clusterInfo.length = vert.Count;
+            clusterInfo.localBoundMin = bounds.min;
+            clusterInfo.localBoundMax = bounds.max;
             indexDataList.AddRange(tri);
-            ClusterMesh clusterMesh = new ClusterMesh();
-            clusterMesh.indexStart = idxStart;
-            clusterMesh.localBoundMin = bounds.min;
-            clusterMesh.localBoundMax = bounds.max;
+            vertexDataList.AddRange(vert);
             //todo: local cone cal
             idxStart += tri.Length;
-            clusterMeshes[i] = clusterMesh;
+            clusterInfos.Add(clusterInfo);
         }
-        clusterObject.clusterMeshes = clusterMeshes;
-        clusterObject.vertexData = StructToBytes(vertexDataList);
-        clusterObject.indexData = StructToBytes(indexDataList);
-        clusterObject.name = "ClusterObject";
+        string filePath = $"{Application.dataPath}/Bytes/{mesh.name}_";
+        SaveBytes(StructToBytes(vertexDataList), $"{filePath}VertexData.bytes");
+        SaveBytes(StructToBytes(indexDataList), $"{filePath}IndexData.bytes");
+        SaveBytes(StructToBytes(clusterInfos), $"{filePath}ClusterInfo.bytes");
     }
 
     private static byte[] StructToBytes<T>(List<T> list) where T : struct {
@@ -94,10 +98,24 @@ public static class ClusterTool
         }
     }
 
-    public static void SaveClusterObjectToFile(ClusterObject clusterObject){
-        string filePath = $"{Application.dataPath}/Bytes/{clusterObject.name}_";
-        SaveBytes(clusterObject.vertexData, $"{filePath}VertexData.bytes");
-        SaveBytes(clusterObject.indexData, $"{filePath}IndexData.bytes");
+    public static T[] BytesToStructArray<T>(Byte[] bytes)
+    {
+        Int32 size = Marshal.SizeOf(typeof(T));
+        IntPtr buffer = Marshal.AllocHGlobal(size);
+        int count = bytes.Length / size;
+        T[] array = new T[count];
+        try
+        {
+            for(int i = 0; i < count; i++){
+                Marshal.Copy(bytes, i * size, buffer, size);
+                array[i] = (T)Marshal.PtrToStructure(buffer, typeof(T));
+            }
+            return array;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 
     private static void SaveBytes(byte[] bytes, string filePath){
@@ -107,11 +125,15 @@ public static class ClusterTool
         fs.Dispose();
     }
 
-    private static ClusterObject LoadClusterObjectFromFile(string name){
-        string filePath = $"{Application.dataPath}/Bytes/{name}_";
+    public static ClusterObject LoadClusterObjectFromFile(string name){
+        string filePath = $"{name}_";
         ClusterObject clusterObject = new ClusterObject();
-        clusterObject.vertexData = Addressables.LoadAssetAsync<TextAsset>($"{filePath}VertexData.bytes").WaitForCompletion().bytes;
-        clusterObject.indexData = Addressables.LoadAssetAsync<TextAsset>($"{filePath}IndexData.bytes").WaitForCompletion().bytes;
+        var vertexBytes = Addressables.LoadAssetAsync<TextAsset>($"{filePath}VertexData").WaitForCompletion().bytes;
+        clusterObject.vertexData = BytesToStructArray<Vector3>(vertexBytes);
+        var indexBytes = Addressables.LoadAssetAsync<TextAsset>($"{filePath}IndexData").WaitForCompletion().bytes;
+        clusterObject.indexData = BytesToStructArray<int>(indexBytes);
+        var infoBytes = Addressables.LoadAssetAsync<TextAsset>($"{filePath}ClusterInfo").WaitForCompletion().bytes;
+        clusterObject.clusterInfos = BytesToStructArray<ClusterInfo>(infoBytes);
         clusterObject.name = name;
         return clusterObject;
     }
