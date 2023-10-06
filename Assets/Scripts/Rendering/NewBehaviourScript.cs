@@ -9,6 +9,7 @@ public class NewBehaviourScript : MonoBehaviour
     void Start()
     {
         //ClusterTool.BakeClusterInfoToFile(mesh);
+        //return;
         var obj = ClusterTool.LoadClusterObjectFromFile("fish_tigershark_001_c01_ShapeBlend");
         for(int i = 0; i < obj.clusterInfos.Length; ++i){
             var clusterInfo = obj.clusterInfos[i];
@@ -18,15 +19,9 @@ public class NewBehaviourScript : MonoBehaviour
             int triDataLen = 3 * 64;
             var index = new int[triDataLen];
             for(int j = 0; j < triDataLen; ++j){
-                index[j] = obj.indexData[i * 3 * 64 + j];
+                index[j] = obj.indexData[clusterInfo.indexStart + j];
             }
-            var vertex = new Vector3[clusterInfo.length];
-            Debug.LogError("" + clusterInfo.length);
-            int idx= 0;
-            for(int j = clusterInfo.vertexStart; j < clusterInfo.vertexStart + clusterInfo.length; ++j){
-                vertex[idx++] = obj.vertexData[j];
-            }
-            mesh.vertices = vertex;
+            mesh.vertices = obj.vertexData;
             mesh.triangles = index;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();

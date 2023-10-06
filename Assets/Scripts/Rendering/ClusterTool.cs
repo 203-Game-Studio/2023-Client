@@ -10,8 +10,8 @@ public struct ClusterInfo{
     public Vector3 localBoundMin;
     public Vector3 localBoundMax;
     public int indexStart;
-    public int vertexStart;
-    public int length;
+    //public int vertexStart;
+    //public int length;
     public Vector4 localCone;
 }
 
@@ -31,7 +31,7 @@ public static class ClusterTool
         mesh.GetVertices(vertices);
         int clusterCount = Mathf.CeilToInt(triangles.Length / (3.0f * 64));
         List<ClusterInfo> clusterInfos = new List<ClusterInfo>(clusterCount);
-        List<Vector3> vertexDataList = new List<Vector3>();
+        //List<Vector3> vertexDataList = new List<Vector3>();
         List<int> indexDataList = new List<int>();
         int idxStart = 0;
         for(int i = 0; i < clusterCount;++i){
@@ -57,24 +57,24 @@ public static class ClusterTool
                 vert.Add(v);
                 vertexDic.Add(v, idx++);
             }
-            for(int j = 0; j < tri.Length; ++j){
+            /*for(int j = 0; j < tri.Length; ++j){
                 tri[j] = vertexDic[vertices[tri[j]]];
-            }
+            }*/
             var bounds = GeometryUtility.CalculateBounds(vert.ToArray(), Matrix4x4.identity);
             ClusterInfo clusterInfo = new ClusterInfo();
             clusterInfo.indexStart = idxStart;
-            clusterInfo.vertexStart = vertexDataList.Count;
-            clusterInfo.length = vert.Count;
+            //clusterInfo.vertexStart = vertexDataList.Count;
+            //clusterInfo.length = vert.Count;
             clusterInfo.localBoundMin = bounds.min;
             clusterInfo.localBoundMax = bounds.max;
             indexDataList.AddRange(tri);
-            vertexDataList.AddRange(vert);
+            //vertexDataList.AddRange(vert);
             //todo: local cone cal
             idxStart += tri.Length;
             clusterInfos.Add(clusterInfo);
         }
         string filePath = $"{Application.dataPath}/Bytes/{mesh.name}_";
-        SaveBytes(StructToBytes(vertexDataList), $"{filePath}VertexData.bytes");
+        SaveBytes(StructToBytes(vertices), $"{filePath}VertexData.bytes");
         SaveBytes(StructToBytes(indexDataList), $"{filePath}IndexData.bytes");
         SaveBytes(StructToBytes(clusterInfos), $"{filePath}ClusterInfo.bytes");
     }
