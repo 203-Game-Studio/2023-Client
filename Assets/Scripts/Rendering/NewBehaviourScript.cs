@@ -9,10 +9,10 @@ public class ClusterizerUtil
     [StructLayout(LayoutKind.Sequential)] 
     public struct meshopt_Meshlet 
     { 
-        public System.UInt16 vertex_offset;
-	    public System.UInt16 triangle_offset;
-        public System.UInt16 vertex_count;
-	    public System.UInt16 triangle_count;
+        public System.UInt32 vertex_offset;
+	    public System.UInt32 triangle_offset;
+        public System.UInt32 vertex_count;
+	    public System.UInt32 triangle_count;
     } 
 
     [DllImport("ClusterizerUtil")]
@@ -21,17 +21,21 @@ public class ClusterizerUtil
     public static extern Int64 meshopt_buildMeshlets(meshopt_Meshlet[] meshlets, uint[] meshlet_vertices, 
         byte[] meshlet_triangles, uint[] indices, Int64 index_count, float[] vertex_positions, 
         Int64 vertex_count, Int64 vertex_positions_stride, Int64 max_vertices, Int64 max_triangles, float cone_weight);
+    [DllImport("ClusterizerUtil")]
+    public static extern Int64 meshopt_buildMeshlets2(meshopt_Meshlet[] meshlets, uint[] meshlet_vertices, 
+        byte[] meshlet_triangles, uint[] indices, Int64 index_count, float[] vertex_positions, 
+        Int64 vertex_count, Int64 vertex_positions_stride, Int64 max_vertices, Int64 max_triangles, float cone_weight);
 }
 
 public class NewBehaviourScript : MonoBehaviour
 {
     public Mesh mesh;
     // Start is called before the first frame update
-    void Start()
+    void Start1()
     {
         const Int64 max_vertices = 64;
         const Int64 max_triangles = 124;
-        const float cone_weight = 1.0f;
+        const float cone_weight = 0.0f;
         int[] trianglesArray = mesh.GetTriangles(0);
         uint[] triangles = new uint[trianglesArray.Length];
         for(int i = 0; i < trianglesArray.Length; ++i){
@@ -53,27 +57,51 @@ public class NewBehaviourScript : MonoBehaviour
 
         Int64 meshlet_count = ClusterizerUtil.meshopt_buildMeshlets(meshlets, meshlet_vertices, 
             meshlet_triangles, triangles, triangles.Length, vertices, 
-            vertices.Length, 3*4, max_vertices, max_triangles, cone_weight);
-        for(int i = 0; i < meshlet_count; ++i){
+            verticesList.Count, 3*4, max_vertices, max_triangles, cone_weight);
+        /*Debug.LogError($"meshlet_count {meshlet_count}");
+        Debug.LogError($"triangles.Length {meshlets[0].vertex_offset}");
+        Debug.LogError($"verticesList.Count {meshlets[0].triangle_offset}");
+        Debug.LogError($"3*4 {meshlets[0].vertex_count}");
+        Debug.LogError($"max_triangles {meshlets[0].triangle_count}");
+        Debug.LogError($"max_triangles {meshlets[1].vertex_offset}");
+        Debug.LogError($"cone_weight {meshlets[1].triangle_offset}");
+        int a = -888;
+        Debug.LogError($"-888 {meshlets[1].vertex_count} {(uint)a}");
+        Debug.LogError($"-1000 {meshlets[1].triangle_count}");
+        Debug.LogError($"1 {meshlet_vertices[0]}");
+        Debug.LogError($"2 {meshlet_vertices[1]}");
+        Debug.LogError($"3 {meshlet_vertices[2]}");
+        Debug.LogError($"4 {meshlet_vertices[3]}");
+        Debug.LogError($"5 {meshlet_vertices[4]}");
+        Debug.LogError($"2 {meshlet_triangles[0]}");
+        Debug.LogError($"3 {meshlet_triangles[1]}");
+        Debug.LogError($"4 {meshlet_triangles[2]}");
+        Debug.LogError($"5 {meshlet_triangles[3]}");
+        Debug.LogError($"6 {meshlet_triangles[4]}");*/
+        for(int i = 0; i < 1; ++i){
             GameObject go = new GameObject(i.ToString());
             var filter = go.AddComponent<MeshFilter>();
             Mesh mesh = new Mesh();
-            Debug.LogError("-----------------------");
-            Debug.LogError($"vertex_count{meshlets[i].vertex_count}");
-            Debug.LogError($"triangle_count{meshlets[i].triangle_count}");
-            Debug.LogError("-----------------------");
-            
-            /*int triDataLen = 3 * 64;
-            var index = new int[triDataLen];
-            for(int j = 0; j < triDataLen; ++j){
-                index[j] = obj.indexData[clusterInfo.indexStart + j];
+
+            int meshVerticesCount = (int)meshlets[i].vertex_count/3;
+            Vector3[] meshvertices = new Vector3[meshVerticesCount];
+            for(int j = 0;j< meshVerticesCount;++j){
+                meshvertices[j] = new Vector3(vertices[meshlet_vertices[meshlets[i].vertex_offset+j*3]]
+                    ,vertices[meshlet_vertices[meshlets[i].vertex_offset+1+j*3]],
+                    vertices[meshlet_vertices[meshlets[i].vertex_offset+2+j*3]]);
             }
-            mesh.vertices = obj.vertexData;
+            
+            int count = Mathf.FloorToInt(meshlets[i].triangle_count/3.0f)*3;
+            var index = new int[count];
+            for(int j = 0; j < count; ++j){
+                index[j] = meshlet_triangles[meshlets[i].triangle_offset + j];
+            }
+            mesh.vertices = meshvertices;
             mesh.triangles = index;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             filter.sharedMesh = mesh;
-            var rederer = go.AddComponent<MeshRenderer>();*/
+            var rederer = go.AddComponent<MeshRenderer>();
         }
         //ClusterTool.BakeClusterInfoToFile(mesh);
         //return;
@@ -100,6 +128,8 @@ public class NewBehaviourScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        if(Input.GetKeyDown(KeyCode.Space)){
+            Start1();
+        }
     }
 }
