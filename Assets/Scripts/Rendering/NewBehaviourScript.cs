@@ -31,7 +31,8 @@ public class ClusterizerUtil
 public class NewBehaviourScript : MonoBehaviour
 {
     public Mesh mesh;
-    public TextAsset txt;
+    public Material material;
+    public MaterialPropertyBlock block;
     // Start is called before the first frame update
     void Start1()
     {
@@ -87,6 +88,7 @@ public class NewBehaviourScript : MonoBehaviour
         Debug.LogError($"4 {meshlet_triangles[2]}");
         Debug.LogError($"5 {meshlet_triangles[3]}");
         Debug.LogError($"6 {meshlet_triangles[4]}");*/
+        block = new MaterialPropertyBlock();
         BinaryReader br;
         try
         {
@@ -100,48 +102,71 @@ public class NewBehaviourScript : MonoBehaviour
         try
         {
             var indicesC = br.ReadInt64();
-            Debug.Log("" + indicesC);
             int[] indices = new int[indicesC];
             for(int i = 0; i < indicesC;++i){
                 indices[i] = (int)(br.ReadUInt32());
-                if(i<10)Debug.Log("" + indices[i]);
             }
             var meshlet_trianglesC = br.ReadInt64();
-            Debug.Log("" + meshlet_trianglesC);
+            sbyte[] meshlet_triangles = new sbyte[meshlet_trianglesC];
             for(int i = 0; i < meshlet_trianglesC;++i){
-                var indices1 = br.ReadSByte();
-                if(i<10)Debug.Log("" + indices1);
+                meshlet_triangles[i] = br.ReadSByte();
             }
             var meshlet_verticesC = br.ReadInt64();
-            Debug.Log("" + meshlet_verticesC);
+            uint[] meshlet_vertices = new uint[meshlet_verticesC];
             for(int i = 0; i < meshlet_verticesC;++i){
-                var indices1 = br.ReadUInt32();
-                if(i<10)Debug.Log("" + indices1);
+                meshlet_vertices[i] = br.ReadUInt32();
             }
             var verticesC = br.ReadInt64();
             Vector3[] vertices = new Vector3[verticesC];
-            Debug.Log("" + verticesC);
             for(int i = 0; i < verticesC;++i){
-                var indices1 = br.ReadSingle();
-                var indices2 = br.ReadSingle();
-                var indices3 = br.ReadSingle();
-                vertices[i] = new Vector3(indices1,indices2,indices3);
-                if(i<10)Debug.Log($"{indices1},{indices2},{indices3}");
+                vertices[i].x = br.ReadSingle();
+                vertices[i].y = br.ReadSingle();
+                vertices[i].z = br.ReadSingle();
             }
             var meshletsC = br.ReadInt64();
-            Debug.Log("" + meshletsC);
+            ClusterizerUtil.meshopt_Meshlet[] meshlets = new ClusterizerUtil.meshopt_Meshlet[meshletsC];
             for(int i = 0; i < meshletsC;++i){
-                var triangle_count = br.ReadUInt32();
-                var triangle_offset = br.ReadUInt32();
-                var vertex_count = br.ReadUInt32();
-                var vertex_offset = br.ReadUInt32();
-                if(i<10)Debug.Log($"{triangle_count},{triangle_offset},{vertex_count},{vertex_offset}");
+                meshlets[i].triangle_count = br.ReadUInt32();
+                meshlets[i].triangle_offset = br.ReadUInt32();
+                meshlets[i].vertex_count = br.ReadUInt32();
+                meshlets[i].vertex_offset = br.ReadUInt32();
             }
 
-            GameObject go = new GameObject();
-            var filter = go.AddComponent<MeshFilter>();
-            Mesh mesh = new Mesh();
+            for(int i = 0;i< meshletsC;++i){
+                var meshlet = meshlets[i];
+                GameObject go = new GameObject();
+                var filter = go.AddComponent<MeshFilter>();
+                Mesh mesh = new Mesh();
 
+                int fixedCount = Mathf.CeilToInt(meshlet.triangle_count/3.0f)*3;
+                int[] curIndices = new int[fixedCount*3];
+                for(int j = 0; j < meshlet.triangle_count; ++j){
+                    curIndices[j*3] = meshlet_triangles[meshlet.triangle_offset + j*3];
+                    curIndices[j*3+1] = meshlet_triangles[meshlet.triangle_offset + j*3+1];
+                    curIndices[j*3+2] = meshlet_triangles[meshlet.triangle_offset + j*3+2];
+                }
+                for(int j = (int)meshlet.triangle_count; j < fixedCount; ++j){
+                    curIndices[j*3] = meshlet_triangles[meshlet.triangle_offset];
+                    curIndices[j*3+1] = meshlet_triangles[meshlet.triangle_offset];
+                    curIndices[j*3+2] = meshlet_triangles[meshlet.triangle_offset];
+                }
+
+                Vector3[] curVertices = new Vector3[meshlet.vertex_count];
+                for(int j = 0; j < meshlet.vertex_count; ++j){
+                    curVertices[j] = vertices[meshlet_vertices[meshlet.vertex_offset + j]];
+                }
+
+                mesh.vertices = curVertices;
+                mesh.triangles = curIndices;
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+                filter.sharedMesh = mesh;
+                var rederer = go.AddComponent<MeshRenderer>();
+                rederer.sharedMaterial = material;
+                block.SetColor("_BaseColor", new Color(UnityEngine.Random.Range(0, 1.0f),
+                    UnityEngine.Random.Range(0, 1.0f),UnityEngine.Random.Range(0, 1.0f)));
+                rederer.SetPropertyBlock(block);
+            }
             /*int meshVerticesCount = (int)meshlets[i].vertex_count;
             Vector3[] meshvertices = new Vector3[meshVerticesCount];
             for(int j = 0; j < meshVerticesCount; ++j){
@@ -153,12 +178,7 @@ public class NewBehaviourScript : MonoBehaviour
             for(int j = 0; j < count; ++j){
                 index[j] = meshlet_triangles[meshlets[i].triangle_offset + j];
             }*/
-            mesh.vertices = vertices;
-            mesh.triangles = indices;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            filter.sharedMesh = mesh;
-            var rederer = go.AddComponent<MeshRenderer>();
+            
         }
         catch (IOException e)
         {
