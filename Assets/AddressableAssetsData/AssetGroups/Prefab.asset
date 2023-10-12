@@ -37,18 +37,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 3e252f00f8c562342a00bc9d56405d74
-    m_Address: fish_tigershark_001_c01_ShapeBlend_VertexData
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 7a7b34b8bd8a1934a875caca0ad77dca
-    m_Address: fish_tigershark_001_c01_ShapeBlend_IndexData
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c43511d9b6358fb44bdb2deb627b2cd4
-    m_Address: fish_tigershark_001_c01_ShapeBlend_ClusterInfo
+  - m_GUID: 7e0aec137c7e1834d8429e0cb3b39217
+    m_Address: default_-730064793
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
