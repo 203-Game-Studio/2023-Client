@@ -13,6 +13,8 @@ public class GameManager : MonoBehaviour
 
     //网络管理
     public NetManager NetMgr { get; set; }
+    //GPU Driven 管理
+    public GPUDrivenManager GPUDrivenMgr { get; set; }
     //UI管理
     public UIManager UIMgr { get; set; }
     //资源管理
@@ -41,6 +43,7 @@ public class GameManager : MonoBehaviour
         Addressables.InitializeAsync();
 
         AssetMgr = gameObject.GetComponentInChildren<AssetManager>();
+        GPUDrivenMgr = gameObject.GetComponentInChildren<GPUDrivenManager>();
         DataMgr = gameObject.GetComponentInChildren<DataManager>();
         EnvironmentMgr = gameObject.GetComponentInChildren<EnvironmentManager>();
         NetMgr = gameObject.GetComponentInChildren<NetManager>();

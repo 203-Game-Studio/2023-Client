@@ -37,8 +37,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 7e0aec137c7e1834d8429e0cb3b39217
-    m_Address: default_-730064793
+  - m_GUID: 1ca80197d1340834798f5f4f4d67ae60
+    m_Address: default
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

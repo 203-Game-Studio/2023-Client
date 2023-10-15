@@ -11,13 +11,14 @@ public class NewBehaviourScript : MonoBehaviour
         //ClusterizerUtil.BakeMeshDataToFile(mesh);
         //return;
         block = new MaterialPropertyBlock();
-        var data = ClusterizerUtil.LoadMeshDataFromFile(mesh.name);
+        var data = ClusterizerUtil.LoadMeshDataFromFile("default");
 
         for(int i = 0;i< data.meshlets.Length;++i){
             var meshlet = data.meshlets[i];
             GameObject go = new GameObject();
             var filter = go.AddComponent<MeshFilter>();
             Mesh mesh = new Mesh();
+            Debug.LogError("" + meshlet.triangleCount);
 
             int fixedCount = Mathf.CeilToInt(meshlet.triangleCount/3.0f)*3;
             int[] curIndices = new int[fixedCount*3];

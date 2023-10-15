@@ -35,8 +35,8 @@ public class ClusterizerUtil
     }
 
     private static MeshData BuildMeshlets(Mesh mesh){
-        const Int64 max_vertices = 64;
-        const Int64 max_triangles = 124;
+        const Int64 max_vertices = 255;
+        const Int64 max_triangles = 64;
         const float cone_weight = 0.0f;
         int[] trianglesArray = mesh.GetTriangles(0);
         uint[] triangles = new uint[trianglesArray.Length];
@@ -60,6 +60,11 @@ public class ClusterizerUtil
         Int64 meshlet_count = ClusterizerUtil.meshopt_buildMeshlets(meshlets, meshlet_vertices, 
             meshlet_triangles, triangles, triangles.Length, vertices, 
             verticesList.Count, 3*4, max_vertices, max_triangles, cone_weight);
+
+        ClusterizerUtil.Meshlet[] curMeshlets =  new ClusterizerUtil.Meshlet[meshlet_count];
+        for(int i = 0; i < meshlet_count; ++i){
+            curMeshlets[i] = meshlets[i];
+        }
         
         List<Vector3> normalsList = new List<Vector3>();
         mesh.GetNormals(normalsList);
@@ -72,7 +77,7 @@ public class ClusterizerUtil
         meshData.vertices = verticesList.ToArray();
         meshData.normals = normalsList.ToArray();
         meshData.tangents = tangentsList.ToArray();
-        meshData.meshlets = meshlets;
+        meshData.meshlets = curMeshlets;
         meshData.meshletTriangles = meshlet_triangles;
         meshData.meshletVertices = meshlet_vertices;
         return meshData;
@@ -80,7 +85,8 @@ public class ClusterizerUtil
 
     public static bool BakeMeshDataToFile(Mesh mesh){
         var data = BuildMeshlets(mesh);
-        string filePath = $"{Application.dataPath}/Bytes/{mesh.name}_{data.uuid}.bytes";
+        
+        string filePath = $"{Application.dataPath}/Bytes/{mesh.name}.bytes";
         try{
             using FileStream fs = new FileStream(filePath, FileMode.Create);
             using BinaryWriter bw = new BinaryWriter(fs);
@@ -122,12 +128,11 @@ public class ClusterizerUtil
     }
 
     public static MeshData LoadMeshDataFromFile(string name){
-        string filePath = $"{name}_{name.GetHashCode()}";
+        string filePath = $"{Application.dataPath}/Bytes/{name}.bytes";
         MeshData data = new MeshData();
-        var dataBytes = Addressables.LoadAssetAsync<TextAsset>(filePath).WaitForCompletion().bytes;
         try{
-            using MemoryStream ms = new MemoryStream(dataBytes);
-            using BinaryReader br = new BinaryReader(ms);
+            using FileStream fs = new FileStream(filePath, FileMode.Open);
+            using BinaryReader br = new BinaryReader(fs);
             data.uuid = br.ReadInt64();
             data.meshlets = BytesToStructArray<Meshlet>(br.ReadBytes(br.ReadInt32()));
             data.vertices = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
@@ -136,7 +141,7 @@ public class ClusterizerUtil
             data.meshletTriangles = br.ReadBytes(br.ReadInt32());
             data.meshletVertices = BytesToStructArray<uint>(br.ReadBytes(br.ReadInt32()));
             br.Close();
-            ms.Close();
+            fs.Close();
         }
         catch (IOException e)
         {
