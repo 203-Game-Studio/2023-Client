@@ -39,6 +39,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private ComputeBuffer argsBuffer;
         private ComputeBuffer verticesBuffer;
         private ComputeBuffer meshletBuffer;
+        private ComputeBuffer instanceDataBuffer;
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
 
@@ -64,6 +65,9 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             }
             meshletTrianglesBuffer.SetData(meshletTriangles);
 
+            instanceDataBuffer = new ComputeBuffer(1, 16*4);
+            instanceDataBuffer.SetData(new Matrix4x4[]{Matrix4x4.identity});
+
             //debug
             debugColorBuffer = new ComputeBuffer(100, 3*4);
             Vector3[] color = new Vector3[100];
@@ -79,6 +83,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             material.SetBuffer("_MeshletBuffer", meshletBuffer);
             material.SetBuffer("_MeshletVerticesBuffer", meshletVerticesBuffer);
             material.SetBuffer("_MeshletTrianglesBuffer", meshletTrianglesBuffer);
+            material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);
 
             List<uint> args = new List<uint>(){64*3, (uint)data.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
@@ -94,6 +99,10 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             var cmd = CommandBufferPool.Get(bufferName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 cmd.Clear();
+                /*Matrix4x4 view = renderingData.cameraData.GetViewMatrix(0);
+                Matrix4x4 proj = renderingData.cameraData.GetProjectionMatrix(0);
+                Matrix4x4 VP = proj * view;
+                material.SetMatrix("_VPMatrix", VP);*/
                 cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 0, MeshTopology.Triangles,
                     argsBuffer, 0);
                 context.ExecuteCommandBuffer(cmd);

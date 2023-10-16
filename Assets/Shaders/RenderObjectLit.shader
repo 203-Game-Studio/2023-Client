@@ -36,14 +36,22 @@ Shader "John/RenderObjectLit"
                 float4 color : TEXCOOR0;
             };
 
+            struct InstanceData
+            {
+                float4x4 objectToWorldMatrix;
+                //something
+            };
+
             struct Meshlet
             {
                 uint vertexOffset;
                 uint triangleOffset;
                 uint vertexCount;
                 uint triangleCount;
+                //uint instanceOffset;
             };
 
+            StructuredBuffer<InstanceData> _InstanceDataBuffer;
             StructuredBuffer<Meshlet> _MeshletBuffer;
             StructuredBuffer<float3> _VerticesBuffer;
             StructuredBuffer<uint> _MeshletVerticesBuffer;
@@ -53,6 +61,8 @@ Shader "John/RenderObjectLit"
             StructuredBuffer<float3> _DebugColorBuffer;
             uniform int _ColorCount;
 
+            //uniform float4x4 _VPMatrix;
+
             void ConfigureProcedural(){}
 
             Varyings LitPassVertex (Attributes input)
@@ -61,7 +71,10 @@ Shader "John/RenderObjectLit"
                 Meshlet meshlet = _MeshletBuffer[input.insID];
                 uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
                 float3 v = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
-                output.positionCS = mul(UNITY_MATRIX_VP, float4(v, 1));
+                InstanceData insData = _InstanceDataBuffer[0];
+                unity_ObjectToWorld = insData.objectToWorldMatrix;
+                VertexPositionInputs positionInputs = GetVertexPositionInputs(v);
+                output.positionCS = positionInputs.positionCS;
                 uint colorIdx = input.insID % _ColorCount;
                 output.color = float4(_DebugColorBuffer[colorIdx], 1);
                 return output;
