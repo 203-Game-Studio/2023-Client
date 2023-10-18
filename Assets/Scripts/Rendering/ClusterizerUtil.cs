@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -16,17 +17,47 @@ public class ClusterizerUtil
 	    public System.UInt32 triangleCount;
     } 
 
+    [StructLayout(LayoutKind.Sequential)] 
+    public struct MeshoptBounds
+    {
+        /* bounding sphere, useful for frustum and occlusion culling */
+        public Vector3 center;
+        public float radius;
+
+        /* normal cone, useful for backface culling */
+        public Vector3 cone_apex;
+        public Vector3 cone_axis;
+        public float cone_cutoff; /* = cos(angle/2) */
+
+	    /* normal cone axis and cutoff, stored in 8-bit SNORM format; decode using x/127.0 */
+        public int cone_axis_cutoff_s8;
+    }
+
+    public struct MeshletBounds
+    {
+        public Vector4 boundSphere;
+        public Vector4 coneApexAndCutoff;
+        public Vector3 coneAxis;
+    }
+
     [DllImport("ClusterizerUtil")]
-    private static extern Int64 meshopt_buildMeshletsBound(Int64 index_count, Int64 max_vertices, Int64 max_triangles);
+    private static extern Int64 meshopt_buildMeshletsBound(Int64 index_count, Int64 max_vertices, 
+        Int64 max_triangles);
     [DllImport("ClusterizerUtil")]
     private static extern Int64 meshopt_buildMeshlets(Meshlet[] meshlets, uint[] meshlet_vertices, 
         byte[] meshlet_triangles, uint[] indices, Int64 index_count, float[] vertex_positions, 
-        Int64 vertexCount, Int64 vertex_positions_stride, Int64 max_vertices, Int64 max_triangles, float cone_weight);
+        Int64 vertexCount, Int64 vertex_positions_stride, Int64 max_vertices, Int64 max_triangles, 
+        float cone_weight);
+    [DllImport("ClusterizerUtil")]
+    private static extern MeshoptBounds meshopt_computeMeshletBounds(uint[] meshlet_vertices,
+	    byte[] meshlet_triangles, Int64 triangle_count, float[] vertex_positions, Int64 vertex_count,
+	    Int64 vertex_positions_stride);
 
     public struct MeshData
     {
         public long uuid;
         public Meshlet[] meshlets;
+        public MeshletBounds[] meshletBounds;
         public Vector3[] vertices;
         public Vector3[] normals;
         public Vector4[] tangents;
@@ -61,9 +92,25 @@ public class ClusterizerUtil
             meshlet_triangles, triangles, triangles.Length, vertices, 
             verticesList.Count, 3*4, max_vertices, max_triangles, cone_weight);
 
-        ClusterizerUtil.Meshlet[] curMeshlets =  new ClusterizerUtil.Meshlet[meshlet_count];
+        Meshlet[] curMeshlets =  new Meshlet[meshlet_count];
+        MeshletBounds[] meshletBounds = new MeshletBounds[meshlet_count];
         for(int i = 0; i < meshlet_count; ++i){
             curMeshlets[i] = meshlets[i];
+            var curMeshletVertices = new uint[meshlets[i].vertexCount];
+            for(int j = 0; j<meshlets[i].vertexCount;++j){
+                curMeshletVertices[j] = meshlet_vertices[j + meshlets[i].vertexOffset];
+            }
+            var curMeshletTriangles = new byte[meshlets[i].triangleCount*3];
+            for(int j = 0; j<meshlets[i].triangleCount*3;++j){
+                curMeshletTriangles[j] = meshlet_triangles[j + meshlets[i].triangleOffset];
+            }
+            var data = meshopt_computeMeshletBounds(curMeshletVertices,curMeshletTriangles,
+                meshlets[i].triangleCount, vertices, verticesList.Count, 3*4);
+            meshletBounds[i].boundSphere = new Vector4(data.center.x, data.center.y, data.center.z, 
+                data.radius);
+            meshletBounds[i].coneApexAndCutoff = new Vector4(data.cone_apex.x, data.cone_apex.y, 
+                data.cone_apex.z, data.cone_cutoff);
+            meshletBounds[i].coneAxis = data.cone_axis;
         }
         
         List<Vector3> normalsList = new List<Vector3>();
@@ -78,6 +125,7 @@ public class ClusterizerUtil
         meshData.normals = normalsList.ToArray();
         meshData.tangents = tangentsList.ToArray();
         meshData.meshlets = curMeshlets;
+        meshData.meshletBounds = meshletBounds;
         meshData.meshletTriangles = meshlet_triangles;
         meshData.meshletVertices = meshlet_vertices;
         return meshData;
@@ -93,6 +141,10 @@ public class ClusterizerUtil
             bw.Write(data.uuid);
 
             var bytes = StructToBytes(data.meshlets);
+            bw.Write(bytes.Length);
+            bw.Write(bytes);
+
+            bytes = StructToBytes(data.meshletBounds);
             bw.Write(bytes.Length);
             bw.Write(bytes);
 
@@ -135,6 +187,7 @@ public class ClusterizerUtil
             using BinaryReader br = new BinaryReader(fs);
             data.uuid = br.ReadInt64();
             data.meshlets = BytesToStructArray<Meshlet>(br.ReadBytes(br.ReadInt32()));
+            data.meshletBounds = BytesToStructArray<MeshletBounds>(br.ReadBytes(br.ReadInt32()));
             data.vertices = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
             data.normals = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
             data.tangents = BytesToStructArray<Vector4>(br.ReadBytes(br.ReadInt32()));
