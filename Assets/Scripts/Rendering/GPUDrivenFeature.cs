@@ -33,12 +33,13 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     {
         private Settings settings;
 
-        private const string bufferName = "Terrain Pass";
+        private const string bufferName = "GPU Driven Pass";
 
         private Material material;
         private ComputeBuffer argsBuffer;
         private ComputeBuffer verticesBuffer;
         private ComputeBuffer meshletBuffer;
+        private ComputeBuffer meshletBoundsBuffer;
         private ComputeBuffer instanceDataBuffer;
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
@@ -56,6 +57,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             verticesBuffer.SetData(data.vertices);
             meshletBuffer = new ComputeBuffer(data.meshlets.Length, 4*4);
             meshletBuffer.SetData(data.meshlets);
+            meshletBoundsBuffer = new ComputeBuffer(data.meshletBounds.Length, 4*13);
+            meshletBoundsBuffer.SetData(data.meshletBounds);
             meshletVerticesBuffer = new ComputeBuffer(data.meshletVertices.Length, 4);
             meshletVerticesBuffer.SetData(data.meshletVertices);
             meshletTrianglesBuffer = new ComputeBuffer(data.meshletTriangles.Length, 4);
@@ -81,6 +84,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
             material.SetBuffer("_VerticesBuffer", verticesBuffer);
             material.SetBuffer("_MeshletBuffer", meshletBuffer);
+            material.SetBuffer("_MeshletBoundsBuffer", meshletBoundsBuffer);
             material.SetBuffer("_MeshletVerticesBuffer", meshletVerticesBuffer);
             material.SetBuffer("_MeshletTrianglesBuffer", meshletTrianglesBuffer);
             material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);

@@ -51,8 +51,18 @@ Shader "John/RenderObjectLit"
                 //uint instanceOffset;
             };
 
+            struct MeshletBounds
+            {
+                float3 min;
+                float3 max;
+                float3 coneApex;
+                float3 coneAxis;
+                float coneCutoff;
+            };
+
             StructuredBuffer<InstanceData> _InstanceDataBuffer;
             StructuredBuffer<Meshlet> _MeshletBuffer;
+            StructuredBuffer<MeshletBounds> _MeshletBoundsBuffer;
             StructuredBuffer<float3> _VerticesBuffer;
             StructuredBuffer<uint> _MeshletVerticesBuffer;
             StructuredBuffer<uint> _MeshletTrianglesBuffer;
@@ -69,14 +79,16 @@ Shader "John/RenderObjectLit"
             {
                 Varyings output;
                 Meshlet meshlet = _MeshletBuffer[input.insID];
+                MeshletBounds meshletBounds = _MeshletBoundsBuffer[input.insID];
                 uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
-                float3 v = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
+                float3 vertex = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
                 InstanceData insData = _InstanceDataBuffer[0];
                 unity_ObjectToWorld = insData.objectToWorldMatrix;
-                VertexPositionInputs positionInputs = GetVertexPositionInputs(v);
+                VertexPositionInputs positionInputs = GetVertexPositionInputs(vertex);
                 output.positionCS = positionInputs.positionCS;
                 uint colorIdx = input.insID % _ColorCount;
-                output.color = float4(_DebugColorBuffer[colorIdx], 1);
+                //output.color = float4(_DebugColorBuffer[colorIdx], 1);
+                output.color = float4(saturate(meshletBounds.min + meshletBounds.max), 1);
                 return output;
             }
 

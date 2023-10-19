@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 
 public class ClusterizerUtil
 {   
@@ -20,9 +18,9 @@ public class ClusterizerUtil
     [StructLayout(LayoutKind.Sequential)] 
     public struct MeshoptBounds
     {
-        /* bounding sphere, useful for frustum and occlusion culling */
-        public Vector3 center;
-        public float radius;
+        /* bounding box, useful for frustum and occlusion culling */
+        public Vector3 min;
+        public Vector3 max;
 
         /* normal cone, useful for backface culling */
         public Vector3 cone_apex;
@@ -35,9 +33,11 @@ public class ClusterizerUtil
 
     public struct MeshletBounds
     {
-        public Vector4 boundSphere;
-        public Vector4 coneApexAndCutoff;
+        public Vector3 min;
+        public Vector3 max;
+        public Vector3 coneApex;
         public Vector3 coneAxis;
+        public float coneCutoff;
     }
 
     [DllImport("ClusterizerUtil")]
@@ -106,11 +106,11 @@ public class ClusterizerUtil
             }
             var data = meshopt_computeMeshletBounds(curMeshletVertices,curMeshletTriangles,
                 meshlets[i].triangleCount, vertices, verticesList.Count, 3*4);
-            meshletBounds[i].boundSphere = new Vector4(data.center.x, data.center.y, data.center.z, 
-                data.radius);
-            meshletBounds[i].coneApexAndCutoff = new Vector4(data.cone_apex.x, data.cone_apex.y, 
-                data.cone_apex.z, data.cone_cutoff);
+            meshletBounds[i].min = data.min;
+            meshletBounds[i].max = data.max;
+            meshletBounds[i].coneApex = data.cone_apex;
             meshletBounds[i].coneAxis = data.cone_axis;
+            meshletBounds[i].coneCutoff = data.cone_cutoff;
         }
         
         List<Vector3> normalsList = new List<Vector3>();
