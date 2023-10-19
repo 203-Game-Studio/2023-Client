@@ -87,8 +87,8 @@ Shader "John/RenderObjectLit"
                 VertexPositionInputs positionInputs = GetVertexPositionInputs(vertex);
                 output.positionCS = positionInputs.positionCS;
                 uint colorIdx = input.insID % _ColorCount;
-                //output.color = float4(_DebugColorBuffer[colorIdx], 1);
-                output.color = float4(saturate(meshletBounds.min + meshletBounds.max), 1);
+                output.color = float4(_DebugColorBuffer[colorIdx], 1);
+                //output.color = float4(saturate(meshletBounds.min + meshletBounds.max), 1);
                 return output;
             }
 
