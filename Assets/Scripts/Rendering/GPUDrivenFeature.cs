@@ -10,7 +10,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     [System.Serializable]
     public class Settings
     {
-        public Shader shader;
+        //public Shader shader;
     }
     public Settings settings = new Settings();
 
@@ -39,12 +39,18 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private ComputeBuffer argsBuffer;
         private ComputeBuffer verticesBuffer;
         private ComputeBuffer meshletBuffer;
-        private ComputeBuffer meshletBoundsBuffer;
         private ComputeBuffer instanceDataBuffer;
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
 
         private ComputeBuffer debugColorBuffer;
+
+        public unsafe ComputeBuffer CreateBufferAndSetData<T>(T[] array) where T : struct
+        {
+            var buffer = new ComputeBuffer(array.Length, sizeof(T));
+            buffer.SetData(array);
+            return buffer;
+        }
 
         public GPUDrivenRenderPass(Settings settings){
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
@@ -53,38 +59,41 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
             var data = ClusterizerUtil.LoadMeshDataFromFile("default");
             if(data.vertices.Length == 0) return;
-            verticesBuffer = new ComputeBuffer(data.vertices.Length, 4*3);
-            verticesBuffer.SetData(data.vertices);
-            meshletBuffer = new ComputeBuffer(data.meshlets.Length, 4*4);
-            meshletBuffer.SetData(data.meshlets);
-            meshletBoundsBuffer = new ComputeBuffer(data.meshletBounds.Length, 4*13);
-            meshletBoundsBuffer.SetData(data.meshletBounds);
-            meshletVerticesBuffer = new ComputeBuffer(data.meshletVertices.Length, 4);
-            meshletVerticesBuffer.SetData(data.meshletVertices);
-            meshletTrianglesBuffer = new ComputeBuffer(data.meshletTriangles.Length, 4);
+            verticesBuffer = CreateBufferAndSetData(data.vertices);
+            meshletBuffer = CreateBufferAndSetData(data.meshlets);
+            meshletVerticesBuffer = CreateBufferAndSetData(data.meshletVertices);
             uint[] meshletTriangles = new uint[data.meshletTriangles.Length];
             for(int i = 0; i < meshletTriangles.Length;++i){
                 meshletTriangles[i] = data.meshletTriangles[i];
             }
-            meshletTrianglesBuffer.SetData(meshletTriangles);
-
-            instanceDataBuffer = new ComputeBuffer(1, 16*4);
-            instanceDataBuffer.SetData(new Matrix4x4[]{Matrix4x4.identity});
+            meshletTrianglesBuffer = CreateBufferAndSetData(meshletTriangles);
+            var instanceData = new Matrix4x4[]{Matrix4x4.identity};
+            instanceDataBuffer = CreateBufferAndSetData(instanceData);
+            //verticesBuffer = new ComputeBuffer(data.vertices.Length, sizeof(Vector3));
+            //verticesBuffer.SetData(data.vertices);
+            //meshletBuffer = new ComputeBuffer(data.meshlets.Length, sizeof(ClusterizerUtil.Meshlet));
+            //meshletBuffer.SetData(data.meshlets);
+            //meshletVerticesBuffer = new ComputeBuffer(data.meshletVertices.Length, sizeof(uint));
+            //meshletVerticesBuffer.SetData(data.meshletVertices);
+            //meshletTrianglesBuffer = new ComputeBuffer(data.meshletTriangles.Length, sizeof(uint));
+            //meshletTrianglesBuffer.SetData(meshletTriangles);
+            //instanceDataBuffer = new ComputeBuffer(1, 16*4);
+            //instanceDataBuffer.SetData(new Matrix4x4[]{Matrix4x4.identity});
 
             //debug
-            debugColorBuffer = new ComputeBuffer(100, 3*4);
             Vector3[] color = new Vector3[100];
             for(int i = 0; i < 100; ++i){
                 color[i] = new Vector3(UnityEngine.Random.Range(0, 1.0f), 
                     UnityEngine.Random.Range(0, 1.0f),UnityEngine.Random.Range(0, 1.0f));
             }
-            debugColorBuffer.SetData(color);
+            debugColorBuffer = CreateBufferAndSetData(color);
+            //debugColorBuffer = new ComputeBuffer(100, 3*4);
+            //debugColorBuffer.SetData(color);
             material.SetBuffer("_DebugColorBuffer", debugColorBuffer);
             material.SetInt("_ColorCount", 100);
 
             material.SetBuffer("_VerticesBuffer", verticesBuffer);
             material.SetBuffer("_MeshletBuffer", meshletBuffer);
-            material.SetBuffer("_MeshletBoundsBuffer", meshletBoundsBuffer);
             material.SetBuffer("_MeshletVerticesBuffer", meshletVerticesBuffer);
             material.SetBuffer("_MeshletTrianglesBuffer", meshletTrianglesBuffer);
             material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);

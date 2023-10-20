@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -13,6 +14,15 @@ public class ClusterizerUtil
 	    public System.UInt32 triangleOffset;
         public System.UInt32 vertexCount;
 	    public System.UInt32 triangleCount;
+
+        /* bounding box, useful for frustum and occlusion culling */
+        public Vector3 min;
+        public Vector3 max;
+
+        /* normal cone, useful for backface culling */
+        public Vector3 cone_apex;
+        public Vector3 cone_axis;
+        public float cone_cutoff; /* = cos(angle/2) */
     } 
 
     [StructLayout(LayoutKind.Sequential)] 
@@ -31,21 +41,12 @@ public class ClusterizerUtil
         public int cone_axis_cutoff_s8;
     }
 
-    public struct MeshletBounds
-    {
-        public Vector3 min;
-        public Vector3 max;
-        public Vector3 coneApex;
-        public Vector3 coneAxis;
-        public float coneCutoff;
-    }
-
     [DllImport("ClusterizerUtil")]
     private static extern Int64 meshopt_buildMeshletsBound(Int64 index_count, Int64 max_vertices, 
         Int64 max_triangles);
     [DllImport("ClusterizerUtil")]
     private static extern Int64 meshopt_buildMeshlets(Meshlet[] meshlets, uint[] meshlet_vertices, 
-        byte[] meshlet_triangles, uint[] indices, Int64 index_count, float[] vertex_positions, 
+        byte[] meshlet_triangles, int[] indices, Int64 index_count, Vector3[] vertex_positions, 
         Int64 vertexCount, Int64 vertex_positions_stride, Int64 max_vertices, Int64 max_triangles, 
         float cone_weight);
     [DllImport("ClusterizerUtil")]
@@ -57,7 +58,6 @@ public class ClusterizerUtil
     {
         public long uuid;
         public Meshlet[] meshlets;
-        public MeshletBounds[] meshletBounds;
         public Vector3[] vertices;
         public Vector3[] normals;
         public Vector4[] tangents;
@@ -66,68 +66,56 @@ public class ClusterizerUtil
     }
 
     private static MeshData BuildMeshlets(Mesh mesh){
-        const Int64 max_vertices = 255;
-        const Int64 max_triangles = 64;
-        const float cone_weight = 0.0f;
-        int[] trianglesArray = mesh.GetTriangles(0);
-        uint[] triangles = new uint[trianglesArray.Length];
-        for(int i = 0; i < trianglesArray.Length; ++i){
+        const Int64 maxVertices = 255;
+        const Int64 maxTriangles = 64;
+        const float coneWeight = 0.0f;
+        //todo: support submesh
+        int[] triangles = mesh.GetTriangles(0);
+        //uint[] triangles = new uint[trianglesArray.Length];
+        //Array.Copy(trianglesArray, triangles, trianglesArray.Length);
+        /*for(int i = 0; i < trianglesArray.Length; ++i){
             triangles[i] = (uint)trianglesArray[i];
-        }
-        List<Vector3> verticesList = new List<Vector3>();
-        mesh.GetVertices(verticesList);
-        float[] vertices = new float[verticesList.Count * 3];
+        }*/
+        List<Vector3> vertices = new List<Vector3>();
+        mesh.GetVertices(vertices);
+        /*float[] vertices = new float[verticesList.Count * 3];
         for(int i = 0; i < verticesList.Count; ++i){
             vertices[i*3] = verticesList[i].x;
             vertices[i*3+1] = verticesList[i].y;
             vertices[i*3+2] = verticesList[i].z;
-        }
+        }*/
 
-        Int64 max_meshlets = ClusterizerUtil.meshopt_buildMeshletsBound(triangles.Length, max_vertices, max_triangles);
-        ClusterizerUtil.Meshlet[] meshlets = new ClusterizerUtil.Meshlet[max_meshlets];
-        uint[] meshlet_vertices = new uint[max_meshlets * max_vertices];
-        byte[] meshlet_triangles = new byte[max_meshlets * max_triangles * 3];
+        Int64 maxMeshlets = meshopt_buildMeshletsBound(triangles.Length, maxVertices, maxTriangles);
+        Meshlet[] meshlets = new Meshlet[maxMeshlets];
+        uint[] meshletVertices = new uint[maxMeshlets * maxVertices];
+        byte[] meshletTriangles = new byte[maxMeshlets * maxTriangles * 3];
 
-        Int64 meshlet_count = ClusterizerUtil.meshopt_buildMeshlets(meshlets, meshlet_vertices, 
-            meshlet_triangles, triangles, triangles.Length, vertices, 
-            verticesList.Count, 3*4, max_vertices, max_triangles, cone_weight);
-
-        Meshlet[] curMeshlets =  new Meshlet[meshlet_count];
-        MeshletBounds[] meshletBounds = new MeshletBounds[meshlet_count];
-        for(int i = 0; i < meshlet_count; ++i){
-            curMeshlets[i] = meshlets[i];
-            var curMeshletVertices = new uint[meshlets[i].vertexCount];
-            for(int j = 0; j<meshlets[i].vertexCount;++j){
-                curMeshletVertices[j] = meshlet_vertices[j + meshlets[i].vertexOffset];
-            }
-            var curMeshletTriangles = new byte[meshlets[i].triangleCount*3];
-            for(int j = 0; j<meshlets[i].triangleCount*3;++j){
-                curMeshletTriangles[j] = meshlet_triangles[j + meshlets[i].triangleOffset];
-            }
-            var data = meshopt_computeMeshletBounds(curMeshletVertices,curMeshletTriangles,
-                meshlets[i].triangleCount, vertices, verticesList.Count, 3*4);
-            meshletBounds[i].min = data.min;
-            meshletBounds[i].max = data.max;
-            meshletBounds[i].coneApex = data.cone_apex;
-            meshletBounds[i].coneAxis = data.cone_axis;
-            meshletBounds[i].coneCutoff = data.cone_cutoff;
-        }
-        
-        List<Vector3> normalsList = new List<Vector3>();
-        mesh.GetNormals(normalsList);
-
-        List<Vector4> tangentsList = new List<Vector4>();
-        mesh.GetTangents(tangentsList);
+        Int64 meshlet_count = meshopt_buildMeshlets(meshlets, meshletVertices, 
+            meshletTriangles, triangles, triangles.Length, vertices.ToArray(), 
+            vertices.Count, 3*4, maxVertices, maxTriangles, coneWeight);
 
         MeshData meshData = new MeshData();
+        if(meshlet_count <= 0){
+            Debug.LogError("Meshlet划分失败!");
+            return meshData;
+        }
+        Array.Resize(ref meshlets, (int)meshlet_count);
+        Meshlet last = meshlets.Last();
+        Array.Resize(ref meshletVertices, (int)(last.vertexOffset + last.vertexCount));
+        Array.Resize(ref meshletTriangles, (int)(last.triangleOffset + ((last.triangleCount * 3 + 3) & ~3)));
+        
+        List<Vector3> normals = new List<Vector3>();
+        mesh.GetNormals(normals);
+        List<Vector4> tangents = new List<Vector4>();
+        mesh.GetTangents(tangents);
+
         meshData.uuid = mesh.name.GetHashCode();
-        meshData.vertices = verticesList.ToArray();
-        meshData.normals = normalsList.ToArray();
-        meshData.tangents = tangentsList.ToArray();
-        meshData.meshlets = curMeshlets;
-        meshData.meshletBounds = meshletBounds;
-        meshData.meshletTriangles = meshlet_triangles;
-        meshData.meshletVertices = meshlet_vertices;
+        meshData.vertices = vertices.ToArray();
+        meshData.normals = normals.ToArray();
+        meshData.tangents = tangents.ToArray();
+        meshData.meshlets = meshlets;
+        meshData.meshletTriangles = meshletTriangles;
+        meshData.meshletVertices = meshletVertices;
         return meshData;
     }
 
@@ -141,10 +129,6 @@ public class ClusterizerUtil
             bw.Write(data.uuid);
 
             var bytes = StructToBytes(data.meshlets);
-            bw.Write(bytes.Length);
-            bw.Write(bytes);
-
-            bytes = StructToBytes(data.meshletBounds);
             bw.Write(bytes.Length);
             bw.Write(bytes);
 
@@ -187,7 +171,6 @@ public class ClusterizerUtil
             using BinaryReader br = new BinaryReader(fs);
             data.uuid = br.ReadInt64();
             data.meshlets = BytesToStructArray<Meshlet>(br.ReadBytes(br.ReadInt32()));
-            data.meshletBounds = BytesToStructArray<MeshletBounds>(br.ReadBytes(br.ReadInt32()));
             data.vertices = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
             data.normals = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
             data.tangents = BytesToStructArray<Vector4>(br.ReadBytes(br.ReadInt32()));

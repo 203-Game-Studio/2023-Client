@@ -49,10 +49,6 @@ Shader "John/RenderObjectLit"
                 uint vertexCount;
                 uint triangleCount;
                 //uint instanceOffset;
-            };
-
-            struct MeshletBounds
-            {
                 float3 min;
                 float3 max;
                 float3 coneApex;
@@ -62,7 +58,6 @@ Shader "John/RenderObjectLit"
 
             StructuredBuffer<InstanceData> _InstanceDataBuffer;
             StructuredBuffer<Meshlet> _MeshletBuffer;
-            StructuredBuffer<MeshletBounds> _MeshletBoundsBuffer;
             StructuredBuffer<float3> _VerticesBuffer;
             StructuredBuffer<uint> _MeshletVerticesBuffer;
             StructuredBuffer<uint> _MeshletTrianglesBuffer;
@@ -79,7 +74,6 @@ Shader "John/RenderObjectLit"
             {
                 Varyings output;
                 Meshlet meshlet = _MeshletBuffer[input.insID];
-                MeshletBounds meshletBounds = _MeshletBoundsBuffer[input.insID];
                 uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
                 float3 vertex = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
                 InstanceData insData = _InstanceDataBuffer[0];
@@ -88,7 +82,7 @@ Shader "John/RenderObjectLit"
                 output.positionCS = positionInputs.positionCS;
                 uint colorIdx = input.insID % _ColorCount;
                 output.color = float4(_DebugColorBuffer[colorIdx], 1);
-                //output.color = float4(saturate(meshletBounds.min + meshletBounds.max), 1);
+                //output.color = float4(saturate(meshlet.min + meshlet.max), 1);
                 return output;
             }
 
