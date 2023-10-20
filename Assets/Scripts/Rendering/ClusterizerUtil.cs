@@ -61,7 +61,7 @@ public class ClusterizerUtil
         public Vector3[] vertices;
         public Vector3[] normals;
         public Vector4[] tangents;
-        public byte[] meshletTriangles;
+        public uint[] meshletTriangles;
         public uint[] meshletVertices;
     }
 
@@ -102,7 +102,12 @@ public class ClusterizerUtil
         Array.Resize(ref meshlets, (int)meshlet_count);
         Meshlet last = meshlets.Last();
         Array.Resize(ref meshletVertices, (int)(last.vertexOffset + last.vertexCount));
-        Array.Resize(ref meshletTriangles, (int)(last.triangleOffset + ((last.triangleCount * 3 + 3) & ~3)));
+        int meshletTrianglesCount = (int)(last.triangleOffset + ((last.triangleCount * 3 + 3) & ~3));
+        uint[] meshletTrianglesUint = new uint[meshletTrianglesCount];
+        for(int idx = 0; idx < meshletTrianglesCount; ++idx){
+            meshletTrianglesUint[idx] = meshletTriangles[idx];
+        }
+        //Array.Resize(ref meshletTriangles, (int)());
         
         List<Vector3> normals = new List<Vector3>();
         mesh.GetNormals(normals);
@@ -114,7 +119,7 @@ public class ClusterizerUtil
         meshData.normals = normals.ToArray();
         meshData.tangents = tangents.ToArray();
         meshData.meshlets = meshlets;
-        meshData.meshletTriangles = meshletTriangles;
+        meshData.meshletTriangles = meshletTrianglesUint;
         meshData.meshletVertices = meshletVertices;
         return meshData;
     }
@@ -174,7 +179,7 @@ public class ClusterizerUtil
             data.vertices = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
             data.normals = BytesToStructArray<Vector3>(br.ReadBytes(br.ReadInt32()));
             data.tangents = BytesToStructArray<Vector4>(br.ReadBytes(br.ReadInt32()));
-            data.meshletTriangles = br.ReadBytes(br.ReadInt32());
+            data.meshletTriangles = BytesToStructArray<uint>(br.ReadBytes(br.ReadInt32()));
             data.meshletVertices = BytesToStructArray<uint>(br.ReadBytes(br.ReadInt32()));
             br.Close();
             fs.Close();

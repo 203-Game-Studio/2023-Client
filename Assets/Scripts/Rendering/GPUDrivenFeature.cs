@@ -62,11 +62,11 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             verticesBuffer = CreateBufferAndSetData(data.vertices);
             meshletBuffer = CreateBufferAndSetData(data.meshlets);
             meshletVerticesBuffer = CreateBufferAndSetData(data.meshletVertices);
-            uint[] meshletTriangles = new uint[data.meshletTriangles.Length];
+            /*uint[] meshletTriangles = new uint[data.meshletTriangles.Length];
             for(int i = 0; i < meshletTriangles.Length;++i){
                 meshletTriangles[i] = data.meshletTriangles[i];
-            }
-            meshletTrianglesBuffer = CreateBufferAndSetData(meshletTriangles);
+            }*/
+            meshletTrianglesBuffer = CreateBufferAndSetData(data.meshletTriangles);
             var instanceData = new Matrix4x4[]{Matrix4x4.identity};
             instanceDataBuffer = CreateBufferAndSetData(instanceData);
             //verticesBuffer = new ComputeBuffer(data.vertices.Length, sizeof(Vector3));
