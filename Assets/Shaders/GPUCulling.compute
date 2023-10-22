@@ -1,0 +1,59 @@
+#pragma kernel GPUCulling
+
+#include "GPUDrivenDef.hlsl"
+
+StructuredBuffer<InstanceData> _InstanceDataBuffer;
+StructuredBuffer<Meshlet> _MeshletBuffer;
+AppendStructuredBuffer<Meshlet> _CullResult;
+uniform float4x4 _VPMatrix;
+uniform int _MeshletCount;
+
+bool IsInClipSpace(float4 positionCS)
+{
+    return positionCS.x > -positionCS.w && positionCS.x < positionCS.w &&
+        positionCS.y > -positionCS.w && positionCS.y < positionCS.w &&
+        positionCS.z > 0 && positionCS.z < positionCS.w;
+}
+
+[numthreads(32, 1, 1)]
+void GPUCulling(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _MeshletCount)
+        return;
+    Meshlet meshlet = _MeshletBuffer[id.x];
+    float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
+    float4x4 mvpMatrix = mul(_VPMatrix, mMatrix);
+
+    float4 boundVerts[8];
+    boundVerts[0] = float4(meshlet.min, 1);
+    boundVerts[1] = float4(meshlet.max, 1);
+    boundVerts[2] = float4(meshlet.max.x, meshlet.max.y, meshlet.min.z, 1);
+    boundVerts[3] = float4(meshlet.max.x, meshlet.min.y, meshlet.max.z, 1);
+    boundVerts[4] = float4(meshlet.max.x, meshlet.min.y, meshlet.min.z, 1);
+    boundVerts[5] = float4(meshlet.min.x, meshlet.max.y, meshlet.max.z, 1);
+    boundVerts[6] = float4(meshlet.min.x, meshlet.max.y, meshlet.min.z, 1);
+    boundVerts[7] = float4(meshlet.min.x, meshlet.min.y, meshlet.max.z, 1);
+
+    float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;
+    //视椎剔除
+    bool isInClipSpace = false;
+    for (int i = 0; i < 8; i++)
+    {
+        float4 positionCS = mul(mvpMatrix, boundVerts[i]);
+        if (!isInClipSpace && IsInClipSpace(positionCS))
+            isInClipSpace = true;
+
+        //ndc的AABB
+        float3 ndc = positionCS.xyz / positionCS.w;
+        if (minX > ndc.x) minX = ndc.x;
+        if (minY > ndc.y) minY = ndc.y;
+        if (minZ > ndc.z) minZ = ndc.z;
+        if (maxX < ndc.x) maxX = ndc.x;
+        if (maxY < ndc.y) maxY = ndc.y;
+        if (maxZ < ndc.z) maxZ = ndc.z;
+    }
+    if (!isInClipSpace)
+        return;
+
+    _CullResult.Append(meshlet);
+}

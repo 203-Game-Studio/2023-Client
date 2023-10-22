@@ -23,6 +23,7 @@ Shader "John/RenderObjectLit"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
+            #include "GPUDrivenDef.hlsl"
 
             struct Attributes
             {
@@ -36,28 +37,8 @@ Shader "John/RenderObjectLit"
                 float4 color : TEXCOOR0;
             };
 
-            struct InstanceData
-            {
-                float4x4 objectToWorldMatrix;
-                //something
-            };
-
-            struct Meshlet
-            {
-                uint vertexOffset;
-                uint triangleOffset;
-                uint vertexCount;
-                uint triangleCount;
-                //uint instanceOffset;
-                float3 min;
-                float3 max;
-                float3 coneApex;
-                float3 coneAxis;
-                float coneCutoff;
-            };
-
             StructuredBuffer<InstanceData> _InstanceDataBuffer;
-            StructuredBuffer<Meshlet> _MeshletBuffer;
+            StructuredBuffer<Meshlet> _CullResult;
             StructuredBuffer<float3> _VerticesBuffer;
             StructuredBuffer<uint> _MeshletVerticesBuffer;
             StructuredBuffer<uint> _MeshletTrianglesBuffer;
@@ -73,7 +54,7 @@ Shader "John/RenderObjectLit"
             Varyings LitPassVertex (Attributes input)
             {
                 Varyings output;
-                Meshlet meshlet = _MeshletBuffer[input.insID];
+                Meshlet meshlet = _CullResult[input.insID];
                 uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
                 float3 vertex = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
                 InstanceData insData = _InstanceDataBuffer[0];

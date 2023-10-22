@@ -20,9 +20,9 @@ public class ClusterizerUtil
         public Vector3 max;
 
         /* normal cone, useful for backface culling */
-        public Vector3 cone_apex;
-        public Vector3 cone_axis;
-        public float cone_cutoff; /* = cos(angle/2) */
+        public Vector3 coneApex;
+        public Vector3 coneAxis;
+        public float coneCutoff; /* = cos(angle/2) */
     } 
 
     [StructLayout(LayoutKind.Sequential)] 

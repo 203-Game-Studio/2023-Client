@@ -11,6 +11,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     public class Settings
     {
         public Shader shader;
+        public ComputeShader cullingShader;
     }
     public Settings settings = new Settings();
 
@@ -36,14 +37,24 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private const string bufferName = "GPU Driven Pass";
 
         private Material material;
-        private ComputeBuffer argsBuffer;
         private ComputeBuffer verticesBuffer;
         private ComputeBuffer meshletBuffer;
         private ComputeBuffer instanceDataBuffer;
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
+        private ComputeBuffer cullResult;
 
         private ComputeBuffer debugColorBuffer;
+
+        private Camera mainCamera;
+        private ClusterizerUtil.MeshData meshData;
+
+        private List<uint> args;
+        private ComputeBuffer argsBuffer;
+        private ComputeShader cullingShader;
+        private int cullingKernel;
+        private ComputeBuffer countBuffer;
+        private uint[] countBufferData = new uint[1] { 0 };
 
         public ComputeBuffer CreateBufferAndSetData<T>(T[] array, int stride) where T : struct
         {
@@ -55,16 +66,21 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         public unsafe GPUDrivenRenderPass(Settings settings){
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
             this.settings = settings;
-            material = CoreUtils.CreateEngineMaterial(Shader.Find("John/RenderObjectLit"));
+            this.cullingShader = settings.cullingShader;
+            material = CoreUtils.CreateEngineMaterial(settings.shader);
+            cullingKernel = cullingShader.FindKernel("GPUCulling");
+            mainCamera = Camera.main;
 
-            var data = ClusterizerUtil.LoadMeshDataFromFile("default");
-            if(data.vertices.Length == 0) return;
-            verticesBuffer = CreateBufferAndSetData(data.vertices, sizeof(Vector3));
-            meshletBuffer = CreateBufferAndSetData(data.meshlets, sizeof(ClusterizerUtil.Meshlet));
-            meshletVerticesBuffer = CreateBufferAndSetData(data.meshletVertices, sizeof(uint));
-            meshletTrianglesBuffer = CreateBufferAndSetData(data.meshletTriangles, sizeof(uint));
+            meshData = ClusterizerUtil.LoadMeshDataFromFile("default");
+            if(meshData.vertices.Length == 0) return;
+            verticesBuffer = CreateBufferAndSetData(meshData.vertices, sizeof(Vector3));
+            meshletBuffer = CreateBufferAndSetData(meshData.meshlets, sizeof(ClusterizerUtil.Meshlet));
+            meshletVerticesBuffer = CreateBufferAndSetData(meshData.meshletVertices, sizeof(uint));
+            meshletTrianglesBuffer = CreateBufferAndSetData(meshData.meshletTriangles, sizeof(uint));
             var instanceData = new Matrix4x4[]{Matrix4x4.identity};
             instanceDataBuffer = CreateBufferAndSetData(instanceData, sizeof(Matrix4x4));
+            cullResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
+                ComputeBufferType.Append);
 
             //debug
             Vector3[] color = new Vector3[100];
@@ -73,18 +89,22 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                     UnityEngine.Random.Range(0, 1.0f),UnityEngine.Random.Range(0, 1.0f));
             }
             debugColorBuffer = CreateBufferAndSetData(color, sizeof(Vector3));
-            //debugColorBuffer = new ComputeBuffer(100, 3*4);
-            //debugColorBuffer.SetData(color);
             material.SetBuffer("_DebugColorBuffer", debugColorBuffer);
             material.SetInt("_ColorCount", 100);
 
             material.SetBuffer("_VerticesBuffer", verticesBuffer);
-            material.SetBuffer("_MeshletBuffer", meshletBuffer);
             material.SetBuffer("_MeshletVerticesBuffer", meshletVerticesBuffer);
             material.SetBuffer("_MeshletTrianglesBuffer", meshletTrianglesBuffer);
             material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);
+            material.SetBuffer("_CullResult", cullResult);
+            
+            countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
+            cullingShader.SetBuffer(cullingKernel, "_MeshletBuffer", meshletBuffer);
+            cullingShader.SetInt("_MeshletCount", meshData.meshlets.Length);
+            cullingShader.SetBuffer(cullingKernel, "_CullResult", cullResult);
+            cullingShader.SetBuffer(cullingKernel, "_InstanceDataBuffer", instanceDataBuffer);
 
-            List<uint> args = new List<uint>(){64*3, (uint)data.meshlets.Length, 0, 0, 0};
+            args = new List<uint>(){64*3, (uint)meshData.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
             argsBuffer.SetData(args);
         }
@@ -98,8 +118,21 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             var cmd = CommandBufferPool.Get(bufferName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 cmd.Clear();
-                cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 0, MeshTopology.Triangles,
-                    argsBuffer, 0);
+
+                Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
+                cullingShader.SetMatrix("_VPMatrix", vpMatrix);
+                cullResult.SetCounterValue(0);
+                cullingShader.Dispatch(cullingKernel, 1 + (meshData.meshlets.Length / 32), 1, 1);
+
+                ComputeBuffer.CopyCount(cullResult, countBuffer, 0);
+                countBuffer.GetData(countBufferData);
+                uint count = countBufferData[0];
+                args[1] = count;
+                argsBuffer.SetData(args);
+
+                cmd.Clear();
+                cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 0, MeshTopology.Triangles, argsBuffer, 0);
+
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
                 CommandBufferPool.Release(cmd);
@@ -107,6 +140,15 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         }
 
         public void Dispose(){
+            verticesBuffer?.Dispose();
+            meshletBuffer?.Dispose();
+            instanceDataBuffer?.Dispose();
+            meshletVerticesBuffer?.Dispose();
+            meshletTrianglesBuffer?.Dispose();
+            cullResult?.Dispose();
+            debugColorBuffer?.Dispose();
+            argsBuffer?.Dispose();
+            countBuffer?.Dispose();
         }
 
         ~GPUDrivenRenderPass(){
