@@ -1,19 +1,16 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
 using UnityEngine;
 
 public class RenderObject : MonoBehaviour
 {
-    public int meshGuid;
+    public string meshName;
 
     private void OnEnable()
     {
-        //GPUDrivenManager.Instance.AddRenderObject(meshGuid, transform);
+        GPUDrivenManager.Instance.AddRenderObject(meshName, transform);
     }
 
     private void OnDisable()
     {
-        //GPUDrivenManager.Instance.RemoveRenderObject(meshGuid, transform);
+        GPUDrivenManager.Instance.RemoveRenderObject(meshName, transform);
     }
 }

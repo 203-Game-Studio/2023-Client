@@ -45,10 +45,7 @@ public class GPUDrivenManager : MonoBehaviour, IManager
         }
         if(!meshData.ContainsKey(meshGuid)){
             Debug.Log($"{meshGuid}未载入，开始加载");
-            /*Addressables.LoadAssetsAsync<TextAsset>(meshGuid.ToString(), (txtAsset)=>{
-
-            });*/
-            ClusterizerUtil.LoadMeshDataFromFile(meshGuid.ToString());
+            var data = ClusterizerUtil.LoadMeshDataFromFile("default");
         }
     }
 
