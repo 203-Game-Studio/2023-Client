@@ -8,9 +8,9 @@ public class NewBehaviourScript : MonoBehaviour
     
     void Start1()
     {
-        //ClusterizerUtil.BakeMeshDataToFile(mesh);
-        //return;
-        block = new MaterialPropertyBlock();
+        ClusterizerUtil.BakeMeshDataToFile(mesh);
+        return;
+        /*block = new MaterialPropertyBlock();
         var data = ClusterizerUtil.LoadMeshDataFromFile("default");
 
         for(int i = 0;i< data.meshlets.Length;++i){
@@ -48,7 +48,7 @@ public class NewBehaviourScript : MonoBehaviour
             block.SetColor("_BaseColor", new Color(UnityEngine.Random.Range(0, 1.0f),
                 UnityEngine.Random.Range(0, 1.0f),UnityEngine.Random.Range(0, 1.0f)));
             rederer.SetPropertyBlock(block);
-        }
+        }*/
     }
 
     void Update()

@@ -10,7 +10,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     [System.Serializable]
     public class Settings
     {
-        //public Shader shader;
+        public Shader shader;
     }
     public Settings settings = new Settings();
 
@@ -45,40 +45,26 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
         private ComputeBuffer debugColorBuffer;
 
-        public unsafe ComputeBuffer CreateBufferAndSetData<T>(T[] array) where T : struct
+        public ComputeBuffer CreateBufferAndSetData<T>(T[] array, int stride) where T : struct
         {
-            var buffer = new ComputeBuffer(array.Length, sizeof(T));
+            var buffer = new ComputeBuffer(array.Length, stride);
             buffer.SetData(array);
             return buffer;
         }
 
-        public GPUDrivenRenderPass(Settings settings){
+        public unsafe GPUDrivenRenderPass(Settings settings){
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
             this.settings = settings;
             material = CoreUtils.CreateEngineMaterial(Shader.Find("John/RenderObjectLit"));
 
             var data = ClusterizerUtil.LoadMeshDataFromFile("default");
             if(data.vertices.Length == 0) return;
-            verticesBuffer = CreateBufferAndSetData(data.vertices);
-            meshletBuffer = CreateBufferAndSetData(data.meshlets);
-            meshletVerticesBuffer = CreateBufferAndSetData(data.meshletVertices);
-            /*uint[] meshletTriangles = new uint[data.meshletTriangles.Length];
-            for(int i = 0; i < meshletTriangles.Length;++i){
-                meshletTriangles[i] = data.meshletTriangles[i];
-            }*/
-            meshletTrianglesBuffer = CreateBufferAndSetData(data.meshletTriangles);
+            verticesBuffer = CreateBufferAndSetData(data.vertices, sizeof(Vector3));
+            meshletBuffer = CreateBufferAndSetData(data.meshlets, sizeof(ClusterizerUtil.Meshlet));
+            meshletVerticesBuffer = CreateBufferAndSetData(data.meshletVertices, sizeof(uint));
+            meshletTrianglesBuffer = CreateBufferAndSetData(data.meshletTriangles, sizeof(uint));
             var instanceData = new Matrix4x4[]{Matrix4x4.identity};
-            instanceDataBuffer = CreateBufferAndSetData(instanceData);
-            //verticesBuffer = new ComputeBuffer(data.vertices.Length, sizeof(Vector3));
-            //verticesBuffer.SetData(data.vertices);
-            //meshletBuffer = new ComputeBuffer(data.meshlets.Length, sizeof(ClusterizerUtil.Meshlet));
-            //meshletBuffer.SetData(data.meshlets);
-            //meshletVerticesBuffer = new ComputeBuffer(data.meshletVertices.Length, sizeof(uint));
-            //meshletVerticesBuffer.SetData(data.meshletVertices);
-            //meshletTrianglesBuffer = new ComputeBuffer(data.meshletTriangles.Length, sizeof(uint));
-            //meshletTrianglesBuffer.SetData(meshletTriangles);
-            //instanceDataBuffer = new ComputeBuffer(1, 16*4);
-            //instanceDataBuffer.SetData(new Matrix4x4[]{Matrix4x4.identity});
+            instanceDataBuffer = CreateBufferAndSetData(instanceData, sizeof(Matrix4x4));
 
             //debug
             Vector3[] color = new Vector3[100];
@@ -86,7 +72,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                 color[i] = new Vector3(UnityEngine.Random.Range(0, 1.0f), 
                     UnityEngine.Random.Range(0, 1.0f),UnityEngine.Random.Range(0, 1.0f));
             }
-            debugColorBuffer = CreateBufferAndSetData(color);
+            debugColorBuffer = CreateBufferAndSetData(color, sizeof(Vector3));
             //debugColorBuffer = new ComputeBuffer(100, 3*4);
             //debugColorBuffer.SetData(color);
             material.SetBuffer("_DebugColorBuffer", debugColorBuffer);
@@ -112,10 +98,6 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             var cmd = CommandBufferPool.Get(bufferName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 cmd.Clear();
-                /*Matrix4x4 view = renderingData.cameraData.GetViewMatrix(0);
-                Matrix4x4 proj = renderingData.cameraData.GetProjectionMatrix(0);
-                Matrix4x4 VP = proj * view;
-                material.SetMatrix("_VPMatrix", VP);*/
                 cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 0, MeshTopology.Triangles,
                     argsBuffer, 0);
                 context.ExecuteCommandBuffer(cmd);

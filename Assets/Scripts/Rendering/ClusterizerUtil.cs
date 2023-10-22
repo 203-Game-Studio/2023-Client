@@ -69,21 +69,11 @@ public class ClusterizerUtil
         const Int64 maxVertices = 255;
         const Int64 maxTriangles = 64;
         const float coneWeight = 0.0f;
+
         //todo: support submesh
         int[] triangles = mesh.GetTriangles(0);
-        //uint[] triangles = new uint[trianglesArray.Length];
-        //Array.Copy(trianglesArray, triangles, trianglesArray.Length);
-        /*for(int i = 0; i < trianglesArray.Length; ++i){
-            triangles[i] = (uint)trianglesArray[i];
-        }*/
         List<Vector3> vertices = new List<Vector3>();
         mesh.GetVertices(vertices);
-        /*float[] vertices = new float[verticesList.Count * 3];
-        for(int i = 0; i < verticesList.Count; ++i){
-            vertices[i*3] = verticesList[i].x;
-            vertices[i*3+1] = verticesList[i].y;
-            vertices[i*3+2] = verticesList[i].z;
-        }*/
 
         Int64 maxMeshlets = meshopt_buildMeshletsBound(triangles.Length, maxVertices, maxTriangles);
         Meshlet[] meshlets = new Meshlet[maxMeshlets];
@@ -107,7 +97,6 @@ public class ClusterizerUtil
         for(int idx = 0; idx < meshletTrianglesCount; ++idx){
             meshletTrianglesUint[idx] = meshletTriangles[idx];
         }
-        //Array.Resize(ref meshletTriangles, (int)());
         
         List<Vector3> normals = new List<Vector3>();
         mesh.GetNormals(normals);
