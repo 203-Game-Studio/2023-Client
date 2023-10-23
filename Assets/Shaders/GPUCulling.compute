@@ -6,6 +6,7 @@ StructuredBuffer<InstanceData> _InstanceDataBuffer;
 StructuredBuffer<Meshlet> _MeshletBuffer;
 AppendStructuredBuffer<Meshlet> _CullResult;
 uniform float4x4 _VPMatrix;
+uniform float3 _CameraPos;
 uniform int _MeshletCount;
 uint depthTextureSize;
 Texture2D _HizTexture;
@@ -24,8 +25,14 @@ void GPUCulling(uint3 id : SV_DispatchThreadID)
         return;
     Meshlet meshlet = _MeshletBuffer[id.x];
     float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
-    float4x4 mvpMatrix = mul(_VPMatrix, mMatrix);
 
+    //背面剔除
+    float4 posWS =  mul(mMatrix, float4(meshlet.coneApex, 1));
+    if(dot(normalize(posWS.xyz - _CameraPos), meshlet.coneAxis) >= meshlet.coneCutoff)
+        return;
+
+    //视椎剔除
+    float4x4 mvpMatrix = mul(_VPMatrix, mMatrix);
     float4 boundVerts[8];
     boundVerts[0] = float4(meshlet.min, 1);
     boundVerts[1] = float4(meshlet.max, 1);
@@ -37,7 +44,6 @@ void GPUCulling(uint3 id : SV_DispatchThreadID)
     boundVerts[7] = float4(meshlet.min.x, meshlet.min.y, meshlet.max.z, 1);
 
     float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;
-    //视椎剔除
     bool isInClipSpace = false;
     for (int i = 0; i < 8; i++)
     {

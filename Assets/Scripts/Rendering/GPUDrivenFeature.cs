@@ -31,19 +31,19 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         if (renderingData.cameraData.cameraType == CameraType.Preview) {
             return;
         }
-        InitDepthTexture();
 
-        depthPass.Setup(depthTexture);
+        depthPass.Setup();
         renderer.EnqueuePass(depthPass);
 
-        drawpass.Setup(depthTexture);
+        drawpass.Setup();
         renderer.EnqueuePass(drawpass);
     }
 
     public override void Create()
     {
-        drawpass ??= new(settings);
-        depthPass ??= new();
+        InitDepthTexture();
+        drawpass ??= new(settings, depthTexture);
+        depthPass ??= new(depthTexture);
     }
 
     void InitDepthTexture() {
@@ -55,27 +55,23 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     }
 
     protected override void Dispose(bool disposing) {
-        depthTexture?.Release();
-        depthTexture = null;
     }
 
     public class DepthGeneratorPass : ScriptableRenderPass {
         RTHandle depthTexture;
         Material depthTextureMaterial;
-        int depthTextureShaderID;
         const string passName = "Depth Generate Pass";
 
-        public DepthGeneratorPass() {
+        public DepthGeneratorPass(RTHandle depthTexture) {
             renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
-            depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
             //Shader.Find如果没引用打包会打不进去，后面有时间改下
             depthTextureMaterial = new Material(Shader.Find("John/DepthGeneratorShader"));
+            this.depthTexture = depthTexture;
         }
 
-        public void Setup(RTHandle depthTexture) {
+        public void Setup() {
             ConfigureInput(ScriptableRenderPassInput.Depth);
             ConfigureClear(ClearFlag.None, Color.white);
-            this.depthTexture = depthTexture;
             ConfigureTarget(this.depthTexture);
         }
 
@@ -148,10 +144,11 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             return buffer;
         }
 
-        public unsafe GPUDrivenRenderPass(Settings settings){
+        public unsafe GPUDrivenRenderPass(Settings settings, RTHandle depthTexture){
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
             this.settings = settings;
             this.cullingShader = settings.cullingShader;
+            this.depthTexture = depthTexture;
             material = CoreUtils.CreateEngineMaterial(settings.shader);
             cullingKernel = cullingShader.FindKernel("GPUCulling");
             mainCamera = Camera.main;
@@ -196,8 +193,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             argsBuffer.SetData(args);
         }
 
-        public void Setup(RTHandle depthTexture){
-            this.depthTexture = depthTexture;
+        public void Setup(){
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
@@ -208,12 +204,14 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
                 Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
                 cullingShader.SetMatrix("_VPMatrix", vpMatrix);
+                cullingShader.SetVector("_CameraPos", mainCamera.transform.position);
                 cullResult.SetCounterValue(0);
                 cullingShader.Dispatch(cullingKernel, 1 + (meshData.meshlets.Length / 32), 1, 1);
 
                 ComputeBuffer.CopyCount(cullResult, countBuffer, 0);
                 countBuffer.GetData(countBufferData);
                 uint count = countBufferData[0];
+                //Debug.LogError($"{count*64}/{meshData.meshlets.Length*64}----{(float)(count)/meshData.meshlets.Length}");
                 if(count <= 0) return;
                 args[1] = count;
                 argsBuffer.SetData(args);
@@ -237,6 +235,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             debugColorBuffer?.Dispose();
             argsBuffer?.Dispose();
             countBuffer?.Dispose();
+            depthTexture?.Release();
+            depthTexture = null;
         }
 
         ~GPUDrivenRenderPass(){
