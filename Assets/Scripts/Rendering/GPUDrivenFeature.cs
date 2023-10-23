@@ -5,7 +5,8 @@ using UnityEngine.Rendering.Universal;
 
 public class GPUDrivenFeature : ScriptableRendererFeature
 {
-    private GPUDrivenRenderPass pass = null;
+    private GPUDrivenRenderPass drawpass = null;
+    private DepthGeneratorPass depthPass = null;
 
     [System.Serializable]
     public class Settings
@@ -15,26 +16,109 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     }
     public Settings settings = new Settings();
 
+    private RTHandle depthTexture;
+    static int _depthTextureSize = 0;
+    public static int depthTextureSize {
+        get {
+            if(_depthTextureSize == 0)
+                _depthTextureSize = Mathf.NextPowerOfTwo(Mathf.Max(Screen.width, Screen.height));
+            return _depthTextureSize;
+        }
+    }
+
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         if (renderingData.cameraData.cameraType == CameraType.Preview) {
             return;
         }
+        InitDepthTexture();
 
-        pass.Setup();
-        renderer.EnqueuePass(pass);
+        depthPass.Setup(depthTexture);
+        renderer.EnqueuePass(depthPass);
+
+        drawpass.Setup(depthTexture);
+        renderer.EnqueuePass(drawpass);
     }
 
     public override void Create()
     {
-        pass ??= new(settings);
+        drawpass ??= new(settings);
+        depthPass ??= new();
+    }
+
+    void InitDepthTexture() {
+        if(depthTexture != null) return;
+        RenderTextureDescriptor depthDesc = new RenderTextureDescriptor(depthTextureSize, depthTextureSize, RenderTextureFormat.RHalf);
+        depthDesc.autoGenerateMips = false;
+        depthDesc.useMipMap = true;
+        RenderingUtils.ReAllocateIfNeeded(ref depthTexture, depthDesc, FilterMode.Point, name: "Depth Mipmap Texture");
+    }
+
+    protected override void Dispose(bool disposing) {
+        depthTexture?.Release();
+        depthTexture = null;
+    }
+
+    public class DepthGeneratorPass : ScriptableRenderPass {
+        RTHandle depthTexture;
+        Material depthTextureMaterial;
+        int depthTextureShaderID;
+        const string passName = "Depth Generate Pass";
+
+        public DepthGeneratorPass() {
+            renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
+            depthTextureShaderID = Shader.PropertyToID("_CameraDepthTexture");
+            //Shader.Find如果没引用打包会打不进去，后面有时间改下
+            depthTextureMaterial = new Material(Shader.Find("John/DepthGeneratorShader"));
+        }
+
+        public void Setup(RTHandle depthTexture) {
+            ConfigureInput(ScriptableRenderPassInput.Depth);
+            ConfigureClear(ClearFlag.None, Color.white);
+            this.depthTexture = depthTexture;
+            ConfigureTarget(this.depthTexture);
+        }
+
+        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData) {
+            if(!Application.isPlaying || renderingData.cameraData.cameraType != CameraType.Game) return;
+            var cmd = CommandBufferPool.Get(passName);
+            using (new ProfilingScope(cmd, profilingSampler)){
+                ///////////////////////////////
+                ///生成深度图的mipmap
+                ///////////////////////////////
+                int width = depthTexture.rt.width;
+                int mipmapLevel = 0;
+                RenderTexture currentRenderTexture = null;
+                RenderTexture preRenderTexture = null;
+                while(width > 8) {
+                    currentRenderTexture = RenderTexture.GetTemporary(width, width, 0, RenderTextureFormat.RHalf);
+                    currentRenderTexture.filterMode = FilterMode.Point;
+                    if(preRenderTexture == null) {
+                        cmd.Blit(preRenderTexture, currentRenderTexture, depthTextureMaterial, 1);
+                    }
+                    else {
+                        cmd.Blit(preRenderTexture, currentRenderTexture, depthTextureMaterial, 0);
+                        RenderTexture.ReleaseTemporary(preRenderTexture);
+                    }
+                    cmd.CopyTexture(currentRenderTexture, 0, 0, depthTexture, 0, mipmapLevel);
+                    preRenderTexture = currentRenderTexture;
+
+                    width /= 2;
+                    mipmapLevel++;
+                }
+                RenderTexture.ReleaseTemporary(preRenderTexture);
+                context.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+                CommandBufferPool.Release(cmd);
+            }
+        }
     }
 
     public class GPUDrivenRenderPass : ScriptableRenderPass
     {
         private Settings settings;
 
-        private const string bufferName = "GPU Driven Pass";
+        private const string passName = "GPU Driven Pass";
 
         private Material material;
         private ComputeBuffer verticesBuffer;
@@ -48,6 +132,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
         private Camera mainCamera;
         private ClusterizerUtil.MeshData meshData;
+        private RTHandle depthTexture;
 
         private List<uint> args;
         private ComputeBuffer argsBuffer;
@@ -103,19 +188,21 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             cullingShader.SetInt("_MeshletCount", meshData.meshlets.Length);
             cullingShader.SetBuffer(cullingKernel, "_CullResult", cullResult);
             cullingShader.SetBuffer(cullingKernel, "_InstanceDataBuffer", instanceDataBuffer);
+            cullingShader.SetInt("depthTextureSize", depthTextureSize);
+            cullingShader.SetTexture(cullingKernel, "_HizTexture", depthTexture);
 
             args = new List<uint>(){64*3, (uint)meshData.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
             argsBuffer.SetData(args);
         }
 
-        public void Setup(){
-            
+        public void Setup(RTHandle depthTexture){
+            this.depthTexture = depthTexture;
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
             if(!Application.isPlaying) return;
-            var cmd = CommandBufferPool.Get(bufferName);
+            var cmd = CommandBufferPool.Get(passName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 cmd.Clear();
 
@@ -127,6 +214,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                 ComputeBuffer.CopyCount(cullResult, countBuffer, 0);
                 countBuffer.GetData(countBufferData);
                 uint count = countBufferData[0];
+                if(count <= 0) return;
                 args[1] = count;
                 argsBuffer.SetData(args);
 
