@@ -1,4 +1,5 @@
-#pragma kernel GPUCulling
+#pragma kernel ClusterCulling
+#pragma kernel TriangleCulling
 
 #include "GPUDrivenDef.hlsl"
 
@@ -18,13 +19,119 @@ bool IsInClipSpace(float4 positionCS)
         positionCS.z > 0 && positionCS.z < positionCS.w;
 }
 
-[numthreads(32, 1, 1)]
-void GPUCulling(uint3 id : SV_DispatchThreadID)
+[numthreads(64, 1, 1)]
+void ClusterCulling(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= _MeshletCount)
         return;
     Meshlet meshlet = _MeshletBuffer[id.x];
     float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
+
+    //背面剔除
+    float4 posWS =  mul(mMatrix, float4(meshlet.coneApex, 1));
+    if(dot(normalize(posWS.xyz - _CameraPos), meshlet.coneAxis) >= meshlet.coneCutoff)
+        return;
+
+    //视椎剔除
+    float4x4 mvpMatrix = mul(_VPMatrix, mMatrix);
+    float4 boundVerts[8];
+    boundVerts[0] = float4(meshlet.min, 1);
+    boundVerts[1] = float4(meshlet.max, 1);
+    boundVerts[2] = float4(meshlet.max.x, meshlet.max.y, meshlet.min.z, 1);
+    boundVerts[3] = float4(meshlet.max.x, meshlet.min.y, meshlet.max.z, 1);
+    boundVerts[4] = float4(meshlet.max.x, meshlet.min.y, meshlet.min.z, 1);
+    boundVerts[5] = float4(meshlet.min.x, meshlet.max.y, meshlet.max.z, 1);
+    boundVerts[6] = float4(meshlet.min.x, meshlet.max.y, meshlet.min.z, 1);
+    boundVerts[7] = float4(meshlet.min.x, meshlet.min.y, meshlet.max.z, 1);
+
+    float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;
+    bool isInClipSpace = false;
+    for (int i = 0; i < 8; i++)
+    {
+        float4 positionCS = mul(mvpMatrix, boundVerts[i]);
+        if (!isInClipSpace && IsInClipSpace(positionCS))
+            isInClipSpace = true;
+
+        //ndc的AABB
+        float3 ndc = positionCS.xyz / positionCS.w;
+        if (minX > ndc.x) minX = ndc.x;
+        if (minY > ndc.y) minY = ndc.y;
+        if (minZ > ndc.z) minZ = ndc.z;
+        if (maxX < ndc.x) maxX = ndc.x;
+        if (maxY < ndc.y) maxY = ndc.y;
+        if (maxZ < ndc.z) maxZ = ndc.z;
+    }
+    if (!isInClipSpace)
+        return;
+
+    //hiz遮挡剔除
+    float2 uvLeftBottom = float2(minX, minY) * 0.5f + 0.5f;
+    float2 uvRightTop = float2(maxX, maxY) * 0.5f + 0.5f;
+    float depth = maxZ;
+
+    uint mipmapLevel = (uint)clamp(log2(max(maxX - minX, maxY - minY) * 0.5f * depthTextureSize), 0, log2(depthTextureSize) - 4);
+    uint size = depthTextureSize / (1 << mipmapLevel);
+
+    uint2 pixelLeftBottom = uint2(clamp(uvLeftBottom.x * size, 0, size - 1), clamp(uvLeftBottom.y * size, 0, size - 1));
+    uint2 pixelRightTop = uint2(clamp(uvRightTop.x * size, 0, size - 1), clamp(uvRightTop.y * size, 0, size - 1));
+    
+    float depthInTexture = _HizTexture.mips[mipmapLevel][pixelLeftBottom].r;
+    if (pixelLeftBottom.x < pixelRightTop.x && pixelLeftBottom.y < pixelRightTop.y) {
+        depthInTexture = min(min(depthInTexture, _HizTexture.mips[mipmapLevel][pixelRightTop].r),
+            min(_HizTexture.mips[mipmapLevel][int2(pixelLeftBottom.x, pixelRightTop.y)].r, 
+            _HizTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r));
+    }
+    else if (pixelLeftBottom.x < pixelRightTop.x)
+        depthInTexture = min(depthInTexture, _HizTexture.mips[mipmapLevel][int2(pixelRightTop.x, pixelLeftBottom.y)].r);
+    else if (pixelLeftBottom.y < pixelRightTop.y)
+        depthInTexture = min(depthInTexture, _HizTexture.mips[mipmapLevel][int2(pixelLeftBottom.x, pixelRightTop.y)].r);
+
+    if (depthInTexture > depth)
+        return;
+
+    _CullResult.Append(meshlet);
+}
+
+uniform int _TriangleCount;
+AppendStructuredBuffer<uint> _CullResult;
+[numthreads(64, 1, 1)]
+void TriangleCulling(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _MeshletCount)
+        return;
+    Meshlet meshlet = _MeshletBuffer[id.x];
+    float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
+
+    /*
+    uint startIndex = chunkLODData.triangleStart + id.x * 3;
+    uint index1 = _ClusterTriangleData[startIndex];
+    uint index2 = _ClusterTriangleData[startIndex + 1];
+    uint index3 = _ClusterTriangleData[startIndex + 2];
+
+    VertexBuffer vert1 = _ClusterVertexData[index1];
+    VertexBuffer vert2 = _ClusterVertexData[index2];
+    VertexBuffer vert3 = _ClusterVertexData[index3];
+
+    InstanceBuffer iBuffer = _InstanceBuffer[clusterData.instanceIndex];
+
+    half4 worldVert1 = mul(iBuffer.worldMatrix, half4(vert1.vertex, 1));
+    worldVert1 /= worldVert1.w;
+    half4 worldVert2 = mul(iBuffer.worldMatrix, half4(vert2.vertex, 1));
+    worldVert2 /= worldVert2.w;
+    half4 worldVert3 = mul(iBuffer.worldMatrix, half4(vert3.vertex, 1));
+    worldVert3 /= worldVert3.w;
+
+    half3 minVertex;
+    half3 maxVertex;
+
+    minVertex.xy = min(min(worldVert1.xy, worldVert2.xy), worldVert3.xy);
+    maxVertex.xy = max(max(worldVert1.xy, worldVert2.xy), worldVert3.xy);
+    minVertex .z= min(min(worldVert1.z, worldVert2.z), worldVert3.z);
+    maxVertex.z = max(max(worldVert1.z, worldVert2.z), worldVert3.z);
+
+    half3 center = (minVertex + maxVertex) / 2;
+    half3 extents = (maxVertex - minVertex) / 2;
+    */
 
     //背面剔除
     float4 posWS =  mul(mMatrix, float4(meshlet.coneApex, 1));

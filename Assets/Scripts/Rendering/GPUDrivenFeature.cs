@@ -133,7 +133,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private List<uint> args;
         private ComputeBuffer argsBuffer;
         private ComputeShader cullingShader;
-        private int cullingKernel;
+        private int clusterKernel;
+        private int triangleKernel;
         private ComputeBuffer countBuffer;
         private uint[] countBufferData = new uint[1] { 0 };
 
@@ -150,7 +151,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             this.cullingShader = settings.cullingShader;
             this.depthTexture = depthTexture;
             material = CoreUtils.CreateEngineMaterial(settings.shader);
-            cullingKernel = cullingShader.FindKernel("GPUCulling");
+            clusterKernel = cullingShader.FindKernel("ClusterCulling");
+            triangleKernel = cullingShader.FindKernel("TriangleCulling");
             mainCamera = Camera.main;
 
             meshData = ClusterizerUtil.LoadMeshDataFromFile("default");
@@ -181,12 +183,12 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             material.SetBuffer("_CullResult", cullResult);
             
             countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
-            cullingShader.SetBuffer(cullingKernel, "_MeshletBuffer", meshletBuffer);
+            cullingShader.SetBuffer(clusterKernel, "_MeshletBuffer", meshletBuffer);
             cullingShader.SetInt("_MeshletCount", meshData.meshlets.Length);
-            cullingShader.SetBuffer(cullingKernel, "_CullResult", cullResult);
-            cullingShader.SetBuffer(cullingKernel, "_InstanceDataBuffer", instanceDataBuffer);
+            cullingShader.SetBuffer(clusterKernel, "_CullResult", cullResult);
+            cullingShader.SetBuffer(clusterKernel, "_InstanceDataBuffer", instanceDataBuffer);
             cullingShader.SetInt("depthTextureSize", depthTextureSize);
-            cullingShader.SetTexture(cullingKernel, "_HizTexture", depthTexture);
+            cullingShader.SetTexture(clusterKernel, "_HizTexture", depthTexture);
 
             args = new List<uint>(){64*3, (uint)meshData.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
@@ -206,7 +208,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                 cullingShader.SetMatrix("_VPMatrix", vpMatrix);
                 cullingShader.SetVector("_CameraPos", mainCamera.transform.position);
                 cullResult.SetCounterValue(0);
-                cullingShader.Dispatch(cullingKernel, 1 + (meshData.meshlets.Length / 32), 1, 1);
+                cullingShader.Dispatch(clusterKernel, 1 + (meshData.meshlets.Length / 64), 1, 1);
 
                 ComputeBuffer.CopyCount(cullResult, countBuffer, 0);
                 countBuffer.GetData(countBufferData);
