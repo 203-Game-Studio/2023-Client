@@ -5,7 +5,7 @@
 
 StructuredBuffer<InstanceData> _InstanceDataBuffer;
 StructuredBuffer<Meshlet> _MeshletBuffer;
-AppendStructuredBuffer<Meshlet> _CullResult;
+AppendStructuredBuffer<Meshlet> _ClusterResult;
 uniform float4x4 _VPMatrix;
 uniform float3 _CameraPos;
 uniform int _MeshletCount;
@@ -92,14 +92,13 @@ void ClusterCulling(uint3 id : SV_DispatchThreadID)
     _CullResult.Append(meshlet);
 }
 
-uniform int _TriangleCount;
-AppendStructuredBuffer<uint> _CullResult;
+AppendStructuredBuffer<uint> _TriangleResult;
 [numthreads(64, 1, 1)]
 void TriangleCulling(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= _MeshletCount)
+    if (id.x >= 64)
         return;
-    Meshlet meshlet = _MeshletBuffer[id.x];
+    Meshlet meshlet = _ClusterResult[id.y];
     float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
 
     /*

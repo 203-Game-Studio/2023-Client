@@ -38,7 +38,7 @@ Shader "John/RenderObjectLit"
             };
 
             StructuredBuffer<InstanceData> _InstanceDataBuffer;
-            StructuredBuffer<Meshlet> _CullResult;
+            AppendStructuredBuffer<uint> _TriangleResult;
             StructuredBuffer<float3> _VerticesBuffer;
             StructuredBuffer<uint> _MeshletVerticesBuffer;
             StructuredBuffer<uint> _MeshletTrianglesBuffer;

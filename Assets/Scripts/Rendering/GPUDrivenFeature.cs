@@ -122,7 +122,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private ComputeBuffer instanceDataBuffer;
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
-        private ComputeBuffer cullResult;
+        private ComputeBuffer clusterResult;
+        private ComputeBuffer triangleResult;
 
         private ComputeBuffer debugColorBuffer;
 
@@ -163,8 +164,9 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             meshletTrianglesBuffer = CreateBufferAndSetData(meshData.meshletTriangles, sizeof(uint));
             var instanceData = new Matrix4x4[]{Matrix4x4.identity};
             instanceDataBuffer = CreateBufferAndSetData(instanceData, sizeof(Matrix4x4));
-            cullResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
+            clusterResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
                 ComputeBufferType.Append);
+            triangleResult = new ComputeBuffer(meshData.meshlets.Length*64, sizeof(uint), ComputeBufferType.Append);
 
             //debug
             Vector3[] color = new Vector3[100];
@@ -180,15 +182,19 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             material.SetBuffer("_MeshletVerticesBuffer", meshletVerticesBuffer);
             material.SetBuffer("_MeshletTrianglesBuffer", meshletTrianglesBuffer);
             material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);
-            material.SetBuffer("_CullResult", cullResult);
+            material.SetBuffer("_TriangleResult", triangleResult);
             
             countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
             cullingShader.SetBuffer(clusterKernel, "_MeshletBuffer", meshletBuffer);
             cullingShader.SetInt("_MeshletCount", meshData.meshlets.Length);
-            cullingShader.SetBuffer(clusterKernel, "_CullResult", cullResult);
+            cullingShader.SetBuffer(clusterKernel, "_ClusterResult", clusterResult);
+            cullingShader.SetBuffer(triangleKernel, "_ClusterResult", clusterResult);
+            cullingShader.SetBuffer(triangleKernel, "_TriangleResult", triangleResult);
             cullingShader.SetBuffer(clusterKernel, "_InstanceDataBuffer", instanceDataBuffer);
+            cullingShader.SetBuffer(triangleKernel, "_InstanceDataBuffer", instanceDataBuffer);
             cullingShader.SetInt("depthTextureSize", depthTextureSize);
             cullingShader.SetTexture(clusterKernel, "_HizTexture", depthTexture);
+            cullingShader.SetTexture(triangleKernel, "_HizTexture", depthTexture);
 
             args = new List<uint>(){64*3, (uint)meshData.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
@@ -207,15 +213,21 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                 Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
                 cullingShader.SetMatrix("_VPMatrix", vpMatrix);
                 cullingShader.SetVector("_CameraPos", mainCamera.transform.position);
-                cullResult.SetCounterValue(0);
+                clusterResult.SetCounterValue(0);
                 cullingShader.Dispatch(clusterKernel, 1 + (meshData.meshlets.Length / 64), 1, 1);
 
-                ComputeBuffer.CopyCount(cullResult, countBuffer, 0);
+                ComputeBuffer.CopyCount(clusterResult, countBuffer, 0);
                 countBuffer.GetData(countBufferData);
-                uint count = countBufferData[0];
+                uint clusterCount = countBufferData[0];
                 //Debug.LogError($"{count*64}/{meshData.meshlets.Length*64}----{(float)(count)/meshData.meshlets.Length}");
-                if(count <= 0) return;
-                args[1] = count;
+                if(clusterCount <= 0) return;
+                triangleResult.SetCounterValue(0);
+                cullingShader.SetInt("_TriangleCount", (int)clusterCount * 64);
+                cullingShader.Dispatch(clusterKernel, 1, (int)clusterCount, 1);
+                ComputeBuffer.CopyCount(triangleResult, countBuffer, 0);
+                countBuffer.GetData(countBufferData);
+                uint triangleCount = countBufferData[0];
+                args[1] = triangleCount;
                 argsBuffer.SetData(args);
 
                 cmd.Clear();
@@ -233,7 +245,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             instanceDataBuffer?.Dispose();
             meshletVerticesBuffer?.Dispose();
             meshletTrianglesBuffer?.Dispose();
-            cullResult?.Dispose();
+            clusterResult?.Dispose();
             debugColorBuffer?.Dispose();
             argsBuffer?.Dispose();
             countBuffer?.Dispose();
