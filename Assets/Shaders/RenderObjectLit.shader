@@ -38,10 +38,11 @@ Shader "John/RenderObjectLit"
             };
 
             StructuredBuffer<InstanceData> _InstanceDataBuffer;
-            AppendStructuredBuffer<uint> _TriangleResult;
+            StructuredBuffer<uint2> _TriangleResult;
             StructuredBuffer<float3> _VerticesBuffer;
             StructuredBuffer<uint> _MeshletVerticesBuffer;
             StructuredBuffer<uint> _MeshletTrianglesBuffer;
+            StructuredBuffer<Meshlet> _ClusterCullingResult;
             
             //Debug
             StructuredBuffer<float3> _DebugColorBuffer;
@@ -54,8 +55,9 @@ Shader "John/RenderObjectLit"
             Varyings LitPassVertex (Attributes input)
             {
                 Varyings output;
-                Meshlet meshlet = _CullResult[input.insID];
-                uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
+                uint2 id = _TriangleResult[input.insID];
+                Meshlet meshlet = _ClusterCullingResult[id.y];
+                uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + id.x * 3 + input.vertID];
                 float3 vertex = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
                 InstanceData insData = _InstanceDataBuffer[0];
                 unity_ObjectToWorld = insData.objectToWorldMatrix;

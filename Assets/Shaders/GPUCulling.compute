@@ -18,7 +18,7 @@ bool IsInClipSpace(float4 positionCS)
         positionCS.y > -positionCS.w && positionCS.y < positionCS.w &&
         positionCS.z > 0 && positionCS.z < positionCS.w;
 }
-
+#pragma enable_d3d11_debug_symbols
 [numthreads(64, 1, 1)]
 void ClusterCulling(uint3 id : SV_DispatchThreadID)
 {
@@ -89,49 +89,49 @@ void ClusterCulling(uint3 id : SV_DispatchThreadID)
     if (depthInTexture > depth)
         return;
 
-    _CullResult.Append(meshlet);
+    _ClusterResult.Append(meshlet);
 }
 
-AppendStructuredBuffer<uint> _TriangleResult;
+AppendStructuredBuffer<uint2> _TriangleResult;
+StructuredBuffer<float3> _VerticesBuffer;
+StructuredBuffer<uint> _MeshletVerticesBuffer;
+StructuredBuffer<uint> _MeshletTrianglesBuffer;
+StructuredBuffer<Meshlet> _ClusterCullingResult;
+#pragma enable_d3d11_debug_symbols
 [numthreads(64, 1, 1)]
 void TriangleCulling(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= 64)
-        return;
-    Meshlet meshlet = _ClusterResult[id.y];
+    /*if (id.x >= 64)
+        return;*/
+    Meshlet meshlet = _ClusterCullingResult[id.y];
     float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
 
-    /*
-    uint startIndex = chunkLODData.triangleStart + id.x * 3;
-    uint index1 = _ClusterTriangleData[startIndex];
-    uint index2 = _ClusterTriangleData[startIndex + 1];
-    uint index3 = _ClusterTriangleData[startIndex + 2];
+    uint startIndex = _MeshletTrianglesBuffer[meshlet.triangleOffset + id.x * 3];
+    _TriangleResult.Append(id.xy);
+    //_TriangleResult.Append(meshlet.vertexOffset + startIndex);
 
-    VertexBuffer vert1 = _ClusterVertexData[index1];
-    VertexBuffer vert2 = _ClusterVertexData[index2];
-    VertexBuffer vert3 = _ClusterVertexData[index3];
+   /* float3 vert1 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + startIndex]];
+    float3 vert2 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + startIndex + 1]];
+    float3 vert3 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + startIndex + 2]];
 
-    InstanceBuffer iBuffer = _InstanceBuffer[clusterData.instanceIndex];
-
-    half4 worldVert1 = mul(iBuffer.worldMatrix, half4(vert1.vertex, 1));
+    float4 worldVert1 = mul(mMatrix, half4(vert1, 1));
     worldVert1 /= worldVert1.w;
-    half4 worldVert2 = mul(iBuffer.worldMatrix, half4(vert2.vertex, 1));
+    float4 worldVert2 = mul(mMatrix, half4(vert2, 1));
     worldVert2 /= worldVert2.w;
-    half4 worldVert3 = mul(iBuffer.worldMatrix, half4(vert3.vertex, 1));
+    float4 worldVert3 = mul(mMatrix, half4(vert3, 1));
     worldVert3 /= worldVert3.w;
 
-    half3 minVertex;
-    half3 maxVertex;
+    float3 minVertex;
+    float3 maxVertex;
 
     minVertex.xy = min(min(worldVert1.xy, worldVert2.xy), worldVert3.xy);
     maxVertex.xy = max(max(worldVert1.xy, worldVert2.xy), worldVert3.xy);
-    minVertex .z= min(min(worldVert1.z, worldVert2.z), worldVert3.z);
+    minVertex.z= min(min(worldVert1.z, worldVert2.z), worldVert3.z);
     maxVertex.z = max(max(worldVert1.z, worldVert2.z), worldVert3.z);
 
-    half3 center = (minVertex + maxVertex) / 2;
-    half3 extents = (maxVertex - minVertex) / 2;
-    */
-
+    float3 center = (minVertex + maxVertex) / 2;
+    float3 extents = (maxVertex - minVertex) / 2;*/
+/*
     //背面剔除
     float4 posWS =  mul(mMatrix, float4(meshlet.coneApex, 1));
     if(dot(normalize(posWS.xyz - _CameraPos), meshlet.coneAxis) >= meshlet.coneCutoff)
@@ -193,6 +193,5 @@ void TriangleCulling(uint3 id : SV_DispatchThreadID)
 
     if (depthInTexture > depth)
         return;
-
-    _CullResult.Append(meshlet);
+*/
 }
