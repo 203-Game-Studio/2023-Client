@@ -76,7 +76,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData) {
-            if(!Application.isPlaying || renderingData.cameraData.cameraType != CameraType.Game) return;
+            //if(renderingData.cameraData.cameraType != CameraType.Game) return;
             var cmd = CommandBufferPool.Get(passName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 ///////////////////////////////
@@ -198,7 +198,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             cullingShader.SetBuffer(triangleKernel, "_ClusterCullingResult", clusterResult);
             cullingShader.SetBuffer(triangleKernel, "_TriangleResult", triangleResult);
             cullingShader.SetBuffer(triangleKernel, "_InstanceDataBuffer", instanceDataBuffer);
-            //cullingShader.SetTexture(triangleKernel, "_HizTexture", depthTexture);
+            cullingShader.SetTexture(triangleKernel, "_HizTexture", depthTexture);
             cullingShader.SetBuffer(triangleKernel, "_VerticesBuffer", verticesBuffer);
             cullingShader.SetBuffer(triangleKernel, "_MeshletVerticesBuffer", meshletVerticesBuffer);
             cullingShader.SetBuffer(triangleKernel, "_MeshletTrianglesBuffer", meshletTrianglesBuffer);
@@ -212,7 +212,6 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
-            if(!Application.isPlaying) return;
             var cmd = CommandBufferPool.Get(passName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 cmd.Clear();

@@ -101,53 +101,37 @@ StructuredBuffer<Meshlet> _ClusterCullingResult;
 [numthreads(64, 1, 1)]
 void TriangleCulling(uint3 id : SV_DispatchThreadID)
 {
-    /*if (id.x >= 64)
-        return;*/
     Meshlet meshlet = _ClusterCullingResult[id.y];
     float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
 
-    uint startIndex = _MeshletTrianglesBuffer[meshlet.triangleOffset + id.x * 3];
-    _TriangleResult.Append(id.xy);
-    //_TriangleResult.Append(meshlet.vertexOffset + startIndex);
+    uint startIdx = meshlet.triangleOffset + id.x * 3;
+    uint triIdx1 = _MeshletTrianglesBuffer[startIdx];
+    uint triIdx2 = _MeshletTrianglesBuffer[startIdx+1];
+    uint triIdx3 = _MeshletTrianglesBuffer[startIdx+2];
 
-   /* float3 vert1 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + startIndex]];
-    float3 vert2 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + startIndex + 1]];
-    float3 vert3 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + startIndex + 2]];
-
-    float4 worldVert1 = mul(mMatrix, half4(vert1, 1));
-    worldVert1 /= worldVert1.w;
-    float4 worldVert2 = mul(mMatrix, half4(vert2, 1));
-    worldVert2 /= worldVert2.w;
-    float4 worldVert3 = mul(mMatrix, half4(vert3, 1));
-    worldVert3 /= worldVert3.w;
+    float3 vert1 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + triIdx1]];
+    float3 vert2 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + triIdx2]];
+    float3 vert3 = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + triIdx3]];
 
     float3 minVertex;
     float3 maxVertex;
-
-    minVertex.xy = min(min(worldVert1.xy, worldVert2.xy), worldVert3.xy);
-    maxVertex.xy = max(max(worldVert1.xy, worldVert2.xy), worldVert3.xy);
-    minVertex.z= min(min(worldVert1.z, worldVert2.z), worldVert3.z);
-    maxVertex.z = max(max(worldVert1.z, worldVert2.z), worldVert3.z);
-
-    float3 center = (minVertex + maxVertex) / 2;
-    float3 extents = (maxVertex - minVertex) / 2;*/
-/*
-    //背面剔除
-    float4 posWS =  mul(mMatrix, float4(meshlet.coneApex, 1));
-    if(dot(normalize(posWS.xyz - _CameraPos), meshlet.coneAxis) >= meshlet.coneCutoff)
-        return;
-
+    minVertex.x = min(min(vert1.x, vert2.x), vert3.x);
+    minVertex.y = min(min(vert1.y, vert2.y), vert3.y);
+    minVertex.z = min(min(vert1.z, vert2.z), vert3.z);
+    maxVertex.x = max(max(vert1.x, vert2.x), vert3.x);
+    maxVertex.y = max(max(vert1.y, vert2.y), vert3.y);
+    maxVertex.z = max(max(vert1.z, vert2.z), vert3.z);
     //视椎剔除
-    float4x4 mvpMatrix = mul(_VPMatrix, mMatrix);
     float4 boundVerts[8];
-    boundVerts[0] = float4(meshlet.min, 1);
-    boundVerts[1] = float4(meshlet.max, 1);
-    boundVerts[2] = float4(meshlet.max.x, meshlet.max.y, meshlet.min.z, 1);
-    boundVerts[3] = float4(meshlet.max.x, meshlet.min.y, meshlet.max.z, 1);
-    boundVerts[4] = float4(meshlet.max.x, meshlet.min.y, meshlet.min.z, 1);
-    boundVerts[5] = float4(meshlet.min.x, meshlet.max.y, meshlet.max.z, 1);
-    boundVerts[6] = float4(meshlet.min.x, meshlet.max.y, meshlet.min.z, 1);
-    boundVerts[7] = float4(meshlet.min.x, meshlet.min.y, meshlet.max.z, 1);
+    float4x4 mvpMatrix = mul(_VPMatrix, mMatrix);
+    boundVerts[0] = float4(minVertex, 1);
+    boundVerts[1] = float4(maxVertex, 1);
+    boundVerts[2] = float4(maxVertex.x, maxVertex.y, minVertex.z, 1);
+    boundVerts[3] = float4(maxVertex.x, minVertex.y, maxVertex.z, 1);
+    boundVerts[4] = float4(maxVertex.x, minVertex.y, minVertex.z, 1);
+    boundVerts[5] = float4(minVertex.x, maxVertex.y, maxVertex.z, 1);
+    boundVerts[6] = float4(minVertex.x, maxVertex.y, minVertex.z, 1);
+    boundVerts[7] = float4(minVertex.x, minVertex.y, maxVertex.z, 1);
 
     float minX = 1, minY = 1, minZ = 1, maxX = -1, maxY = -1, maxZ = -1;
     bool isInClipSpace = false;
@@ -193,5 +177,6 @@ void TriangleCulling(uint3 id : SV_DispatchThreadID)
 
     if (depthInTexture > depth)
         return;
-*/
+
+    _TriangleResult.Append(id.xy);
 }
