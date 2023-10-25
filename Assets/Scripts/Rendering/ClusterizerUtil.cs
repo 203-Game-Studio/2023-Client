@@ -69,35 +69,45 @@ public class ClusterizerUtil
         const Int64 maxVertices = 255;
         const Int64 maxTriangles = 64;
         const float coneWeight = 0.0f;
-
-        //todo: support submesh
-        int[] triangles = mesh.GetTriangles(0);
+        
+        MeshData meshData = new MeshData();
         List<Vector3> vertices = new List<Vector3>();
         mesh.GetVertices(vertices);
 
-        Int64 maxMeshlets = meshopt_buildMeshletsBound(triangles.Length, maxVertices, maxTriangles);
-        Meshlet[] meshlets = new Meshlet[maxMeshlets];
-        uint[] meshletVertices = new uint[maxMeshlets * maxVertices];
-        byte[] meshletTriangles = new byte[maxMeshlets * maxTriangles * 3];
+        List<uint> meshletTrianglesUintList = new List<uint>();
+        List<uint> meshletVerticesList = new List<uint>();
+        List<Meshlet> meshletList = new List<Meshlet>();
+        for(int meshIdx = 0; meshIdx < mesh.subMeshCount; ++meshIdx){
+            int[] triangles = mesh.GetTriangles(meshIdx);
+            Int64 maxMeshlets = meshopt_buildMeshletsBound(triangles.Length, maxVertices, maxTriangles);
+            Meshlet[] meshlets = new Meshlet[maxMeshlets];
+            uint[] meshletVertices = new uint[maxMeshlets * maxVertices];
+            byte[] meshletTriangles = new byte[maxMeshlets * maxTriangles * 3];
 
-        Int64 meshlet_count = meshopt_buildMeshlets(meshlets, meshletVertices, 
-            meshletTriangles, triangles, triangles.Length, vertices.ToArray(), 
-            vertices.Count, 3*4, maxVertices, maxTriangles, coneWeight);
+            Int64 meshlet_count = meshopt_buildMeshlets(meshlets, meshletVertices, 
+                meshletTriangles, triangles, triangles.Length, vertices.ToArray(), 
+                vertices.Count, 3*4, maxVertices, maxTriangles, coneWeight);
 
-        MeshData meshData = new MeshData();
-        if(meshlet_count <= 0){
-            Debug.LogError("Meshlet划分失败!");
-            return meshData;
+            if(meshlet_count <= 0){
+                Debug.LogError("Meshlet划分失败!");
+                return meshData;
+            }
+            Array.Resize(ref meshlets, (int)meshlet_count);
+            Meshlet last = meshlets.Last();
+            Array.Resize(ref meshletVertices, (int)(last.vertexOffset + last.vertexCount));
+            int meshletTrianglesCount = (int)(last.triangleOffset + ((last.triangleCount * 3 + 3) & ~3));
+            uint[] meshletTrianglesUint = new uint[meshletTrianglesCount];
+            for(int idx = 0; idx < meshletTrianglesCount; ++idx){
+                meshletTrianglesUint[idx] = meshletTriangles[idx];
+            }
+            for(int idx = 0; idx<meshlet_count;++idx){
+                meshlets[idx].vertexOffset += (uint)meshletVerticesList.Count;
+                meshlets[idx].triangleOffset += (uint)meshletTrianglesUintList.Count;
+            }
+            meshletTrianglesUintList.AddRange(meshletTrianglesUint);
+            meshletVerticesList.AddRange(meshletVertices);
+            meshletList.AddRange(meshlets);
         }
-        Array.Resize(ref meshlets, (int)meshlet_count);
-        Meshlet last = meshlets.Last();
-        Array.Resize(ref meshletVertices, (int)(last.vertexOffset + last.vertexCount));
-        int meshletTrianglesCount = (int)(last.triangleOffset + ((last.triangleCount * 3 + 3) & ~3));
-        uint[] meshletTrianglesUint = new uint[meshletTrianglesCount];
-        for(int idx = 0; idx < meshletTrianglesCount; ++idx){
-            meshletTrianglesUint[idx] = meshletTriangles[idx];
-        }
-        
         List<Vector3> normals = new List<Vector3>();
         mesh.GetNormals(normals);
         List<Vector4> tangents = new List<Vector4>();
@@ -107,9 +117,9 @@ public class ClusterizerUtil
         meshData.vertices = vertices.ToArray();
         meshData.normals = normals.ToArray();
         meshData.tangents = tangents.ToArray();
-        meshData.meshlets = meshlets;
-        meshData.meshletTriangles = meshletTrianglesUint;
-        meshData.meshletVertices = meshletVertices;
+        meshData.meshlets = meshletList.ToArray();
+        meshData.meshletTriangles = meshletTrianglesUintList.ToArray();
+        meshData.meshletVertices = meshletVerticesList.ToArray();
         return meshData;
     }
 

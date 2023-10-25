@@ -28,7 +28,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        if (renderingData.cameraData.cameraType == CameraType.Preview) {
+        if (!Application.isPlaying || renderingData.cameraData.cameraType == CameraType.Preview) {
             return;
         }
 
