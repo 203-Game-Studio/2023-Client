@@ -146,7 +146,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             return buffer;
         }
 
-        public unsafe GPUDrivenRenderPass(Settings settings, RTHandle depthTexture){
+        public GPUDrivenRenderPass(Settings settings, RTHandle depthTexture){
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
             this.settings = settings;
             this.cullingShader = settings.cullingShader;
@@ -155,7 +155,13 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             clusterKernel = cullingShader.FindKernel("ClusterCulling");
             triangleKernel = cullingShader.FindKernel("TriangleCulling");
             mainCamera = Camera.main;
+            UpdateBuffer();
+        }
 
+        public void Setup(){
+        }
+
+        private unsafe void UpdateBuffer(){
             meshData = ClusterizerUtil.LoadMeshDataFromFile("default");
             if(meshData.vertices.Length == 0) return;
             verticesBuffer = CreateBufferAndSetData(meshData.vertices, sizeof(Vector3));
@@ -208,13 +214,18 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             argsBuffer.SetData(args);
         }
 
-        public void Setup(){
-        }
-
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
             var cmd = CommandBufferPool.Get(passName);
             using (new ProfilingScope(cmd, profilingSampler)){
                 cmd.Clear();
+
+                var instanceData = GPUDrivenManager.Instance.BuildInstanceData();
+                /*if(GPUDrivenManager.renderObjectDicIsDirty){
+                    GPUDrivenManager.renderObjectDicIsDirty = false;
+                    instanceDataBuffer = CreateBufferAndSetData(instanceData, 4*4*4);
+                }else*/{
+                    instanceDataBuffer.SetData(instanceData);
+                }
 
                 Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
                 cullingShader.SetMatrix("_VPMatrix", vpMatrix);

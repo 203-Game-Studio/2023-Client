@@ -6,11 +6,11 @@ public class RenderObject : MonoBehaviour
 
     private void OnEnable()
     {
-        GPUDrivenManager.Instance.AddRenderObject(meshName, transform);
+        GPUDrivenManager.AddRenderObject(meshName, transform);
     }
 
     private void OnDisable()
     {
-        GPUDrivenManager.Instance.RemoveRenderObject(meshName, transform);
+        GPUDrivenManager.RemoveRenderObject(meshName, transform);
     }
 }

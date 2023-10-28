@@ -1,7 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 
 public class GPUDrivenManager : MonoBehaviour, IManager
 {
@@ -23,36 +21,59 @@ public class GPUDrivenManager : MonoBehaviour, IManager
 
     public struct RenderObjectData{
         public Transform transform;
-        public int guid;
+        public string meshName;
     }
 
-    public struct MeshData
+    public struct MeshInfo
     {
-        public bool isLoaded;
         public int offset;
+        public int count;
     }
 
-    public static Dictionary<int, RenderObjectData> renderObjects = new Dictionary<int, RenderObjectData>();
+    public static Dictionary<int, RenderObjectData> renderObjectDic = new Dictionary<int, RenderObjectData>();
 
-    public static Dictionary<string, MeshData> meshData = new Dictionary<string, MeshData>();
+    public static Dictionary<string, MeshInfo> meshInfoDic = new Dictionary<string, MeshInfo>();
 
-    public void AddRenderObject(string meshGuid, Transform transform){
+    public static bool renderObjectDicIsDirty = false;
+    public static bool meshInfoDicIsDirty = false;
+
+    public static void AddRenderObject(string meshName, Transform transform){
         var insID = transform.gameObject.GetInstanceID();
-        bool res = renderObjects.TryAdd(insID, new RenderObjectData());
+        var renderObjectData = new RenderObjectData();
+        renderObjectData.meshName = meshName;
+        renderObjectData.transform = transform;
+        bool res = renderObjectDic.TryAdd(insID, renderObjectData);
         if(!res){
             Debug.LogError($"{transform.name}添加出错!");
             return;
         }
-        if(!meshData.ContainsKey(meshGuid)){
-            Debug.Log($"{meshGuid}未载入，开始加载");
+        renderObjectDicIsDirty = true;
+        /*if(!meshInfoDic.ContainsKey(meshName)){
+            Debug.Log($"{meshName}未载入，开始加载");
             var data = ClusterizerUtil.LoadMeshDataFromFile("default");
-        }
+            MeshInfo meshInfo = new MeshInfo();
+            meshInfo.isLoaded = true;
+            meshInfo.meshData = data;
+            meshInfoDic.Add(meshName, meshInfo);
+            meshInfoDicIsDirty = true;
+        }*/
     }
 
-    public void RemoveRenderObject(string meshGuid, Transform transform){
+    Matrix4x4[] instanceData = new Matrix4x4[1];
+    public Matrix4x4[] BuildInstanceData(){
+        if(renderObjectDicIsDirty) instanceData = new Matrix4x4[renderObjectDic.Count];
+        int idx = 0;
+        foreach(var obj in renderObjectDic){
+            instanceData[idx++] = obj.Value.transform.localToWorldMatrix;
+        }
+        return instanceData;
+    }
+
+    public static void RemoveRenderObject(string meshGuid, Transform transform){
         var insID = transform.gameObject.GetInstanceID();
-        if(renderObjects.ContainsKey(insID)){
-            renderObjects.Remove(insID);
+        if(renderObjectDic.ContainsKey(insID)){
+            renderObjectDic.Remove(insID);
+            renderObjectDicIsDirty = true;
         }
     }
 }
