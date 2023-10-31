@@ -44,6 +44,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         InitDepthTexture();
         drawpass ??= new(settings, depthTexture);
         depthPass ??= new(depthTexture);
+        ShadowUtils.CustomRenderShadowSlice -= GPUDrivenRenderPass.RenderShadowmap;
+        ShadowUtils.CustomRenderShadowSlice += GPUDrivenRenderPass.RenderShadowmap;
     }
 
     void InitDepthTexture() {
@@ -116,7 +118,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
         private const string passName = "GPU Driven Pass";
 
-        private Material material;
+        private static Material material;
         private ComputeBuffer verticesBuffer;
         private ComputeBuffer meshletBuffer;
         private ComputeBuffer instanceDataBuffer;
@@ -132,7 +134,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private RTHandle depthTexture;
 
         private List<uint> args;
-        private ComputeBuffer argsBuffer;
+        private static ComputeBuffer argsBuffer;
         private ComputeShader cullingShader;
         private int clusterKernel;
         private int triangleKernel;
@@ -255,6 +257,37 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                 cmd.Clear();
                 CommandBufferPool.Release(cmd);
             }
+        }
+
+        public static void RenderShadowmap(CommandBuffer cmd, Camera camera, CameraRenderType renderType, int cascadeIndex)
+        {
+            if (camera == null || renderType != CameraRenderType.Base)
+            {
+                return;
+            }
+            //先只支持3级csm
+            if (2 < cascadeIndex)
+            {
+                return;
+            }
+
+            int passIndex = 1;
+            switch(cascadeIndex)
+            {
+                case 0:
+                    //Shader.SetGlobalFloat(HZBMatParameterName._CSMOffset0, m_gManager.ShadowClusterCount * cascadeIndex);
+                    break;
+                case 1:
+                    //Shader.SetGlobalFloat(HZBMatParameterName._CSMOffset1, m_gManager.ShadowClusterCount * cascadeIndex);
+                    passIndex = 2;
+                    break;
+                case 2:
+                    //Shader.SetGlobalFloat(HZBMatParameterName._CSMOffset2, m_gManager.ShadowClusterCount * cascadeIndex);
+                    passIndex = 3;
+                    break;
+            }
+
+            cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, argsBuffer, 0);
         }
 
         public void Dispose(){

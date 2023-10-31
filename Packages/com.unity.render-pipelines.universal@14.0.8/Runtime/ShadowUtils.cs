@@ -185,6 +185,7 @@ namespace UnityEngine.Rendering.Universal
             return success;
         }
 
+        public static Action<CommandBuffer, Camera, CameraRenderType, int> CustomRenderShadowSlice;
         /// <summary>
         /// Renders shadows to a shadow slice.
         /// </summary>
@@ -196,7 +197,7 @@ namespace UnityEngine.Rendering.Universal
         /// <param name="view"></param>
         public static void RenderShadowSlice(CommandBuffer cmd, ref ScriptableRenderContext context,
             ref ShadowSliceData shadowSliceData, ref ShadowDrawingSettings settings,
-            Matrix4x4 proj, Matrix4x4 view)
+            Matrix4x4 proj, Matrix4x4 view, Camera camera = null, int cascadeIndex = 0, CameraRenderType renderType = CameraRenderType.Base)
         {
             cmd.SetGlobalDepthBias(1.0f, 2.5f); // these values match HDRP defaults (see https://github.com/Unity-Technologies/Graphics/blob/9544b8ed2f98c62803d285096c91b44e9d8cbc47/com.unity.render-pipelines.high-definition/Runtime/Lighting/Shadow/HDShadowAtlas.cs#L197 )
 
@@ -205,6 +206,7 @@ namespace UnityEngine.Rendering.Universal
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
             context.DrawShadows(ref settings);
+            CustomRenderShadowSlice?.Invoke(cmd, camera, renderType, cascadeIndex);
             cmd.DisableScissorRect();
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
