@@ -1,5 +1,6 @@
 #pragma kernel ClusterCulling
 #pragma kernel TriangleCulling
+#pragma kernel ShadowCulling
 
 #include "GPUDrivenDef.hlsl"
 
@@ -179,4 +180,23 @@ void TriangleCulling(uint3 id : SV_DispatchThreadID)
         return;
 
     _TriangleResult.Append(id.xy);
+}
+
+AppendStructuredBuffer<Meshlet> _ShadowResult;
+uniform float3 _LightDir;
+#pragma enable_d3d11_debug_symbols
+[numthreads(64, 1, 1)]
+void ShadowCulling(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _MeshletCount)
+        return;
+    Meshlet meshlet = _MeshletBuffer[id.x];
+    float4x4 mMatrix = _InstanceDataBuffer[0].objectToWorldMatrix;
+
+    //背面剔除
+    float4 posWS =  mul(mMatrix, float4(meshlet.coneApex, 1));
+    if(dot(normalize(_LightDir), meshlet.coneAxis) >= meshlet.coneCutoff)
+        return;
+
+    _ShadowResult.Append(meshlet);
 }

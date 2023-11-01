@@ -125,6 +125,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
         private ComputeBuffer clusterResult;
+        private ComputeBuffer shadowResult;
         private ComputeBuffer triangleResult;
 
         private ComputeBuffer debugColorBuffer;
@@ -135,9 +136,12 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
         private List<uint> args;
         private static ComputeBuffer argsBuffer;
+        private List<uint> shadowArgs;
+        private static ComputeBuffer shadowArgsBuffer;
         private ComputeShader cullingShader;
         private int clusterKernel;
         private int triangleKernel;
+        private int shadowKernel;
         private ComputeBuffer countBuffer;
         private uint[] countBufferData = new uint[1] { 0 };
 
@@ -156,6 +160,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             material = CoreUtils.CreateEngineMaterial(settings.shader);
             clusterKernel = cullingShader.FindKernel("ClusterCulling");
             triangleKernel = cullingShader.FindKernel("TriangleCulling");
+            shadowKernel = cullingShader.FindKernel("ShadowCulling");
             mainCamera = Camera.main;
             UpdateBuffer();
         }
@@ -173,6 +178,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             var instanceData = new Matrix4x4[]{Matrix4x4.identity};
             instanceDataBuffer = CreateBufferAndSetData(instanceData, sizeof(Matrix4x4));
             clusterResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
+                ComputeBufferType.Append);
+            shadowResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
                 ComputeBufferType.Append);
             triangleResult = new ComputeBuffer(meshData.meshlets.Length*64, sizeof(uint)*2, ComputeBufferType.Append);
 
@@ -192,6 +199,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);
             material.SetBuffer("_TriangleResult", triangleResult);
             material.SetBuffer("_ClusterCullingResult", clusterResult);
+            material.SetBuffer("_ShadowCullingResult", shadowResult);
             
             countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
 
@@ -211,9 +219,17 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             cullingShader.SetBuffer(triangleKernel, "_MeshletVerticesBuffer", meshletVerticesBuffer);
             cullingShader.SetBuffer(triangleKernel, "_MeshletTrianglesBuffer", meshletTrianglesBuffer);
 
+            cullingShader.SetBuffer(shadowKernel, "_MeshletBuffer", meshletBuffer);
+            cullingShader.SetBuffer(shadowKernel, "_InstanceDataBuffer", instanceDataBuffer);
+            cullingShader.SetBuffer(shadowKernel, "_ShadowResult", shadowResult);
+
             args = new List<uint>(){3, (uint)meshData.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
             argsBuffer.SetData(args);
+
+            shadowArgs = new List<uint>(){64*3, (uint)meshData.meshlets.Length, 0, 0, 0};
+            shadowArgsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
+            shadowArgsBuffer.SetData(shadowArgs);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
@@ -227,6 +243,22 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                     instanceDataBuffer = CreateBufferAndSetData(instanceData, 4*4*4);
                 }else*/{
                     instanceDataBuffer.SetData(instanceData);
+                }
+
+                int shadowLightIndex = renderingData.lightData.mainLightIndex;
+                if (shadowLightIndex != -1) {
+                    VisibleLight shadowLight = renderingData.lightData.visibleLights[shadowLightIndex];
+                    Light light = shadowLight.light;
+                    if (light.shadows != LightShadows.None) {
+                        cullingShader.SetVector("_LightDir", light.transform.forward);
+                        shadowResult.SetCounterValue(0);
+                        cullingShader.Dispatch(shadowKernel, 1 + (meshData.meshlets.Length / 64), 1, 1);
+                        ComputeBuffer.CopyCount(shadowResult, countBuffer, 0);
+                        countBuffer.GetData(countBufferData);
+                        uint shadowClusterCount = countBufferData[0];
+                        shadowArgs[1] = shadowClusterCount;
+                        shadowArgsBuffer.SetData(shadowArgs);
+                    }
                 }
 
                 Matrix4x4 vpMatrix = GL.GetGPUProjectionMatrix(mainCamera.projectionMatrix, false) * mainCamera.worldToCameraMatrix;
@@ -287,7 +319,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                     break;
             }
 
-            cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, argsBuffer, 0);
+            cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, shadowArgsBuffer, 0);
         }
 
         public void Dispose(){

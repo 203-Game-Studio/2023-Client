@@ -14,11 +14,10 @@ float3 _LightDirection;
 float3 _LightPosition;
 
 StructuredBuffer<InstanceData> _InstanceDataBuffer;
-StructuredBuffer<uint2> _TriangleResult;
 StructuredBuffer<float3> _VerticesBuffer;
 StructuredBuffer<uint> _MeshletVerticesBuffer;
 StructuredBuffer<uint> _MeshletTrianglesBuffer;
-StructuredBuffer<Meshlet> _ClusterCullingResult;
+StructuredBuffer<Meshlet> _ShadowCullingResult;
 
 struct Attributes
 {
@@ -34,9 +33,8 @@ struct Varyings
 
 float4 GetShadowPositionHClip(Attributes input)
 {
-    uint2 id = _TriangleResult[input.insID];
-    Meshlet meshlet = _ClusterCullingResult[id.y];
-    uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + id.x * 3 + input.vertID];
+    Meshlet meshlet = _ShadowCullingResult[input.insID];
+    uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
     float3 vertex = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
     InstanceData insData = _InstanceDataBuffer[0];
     unity_ObjectToWorld = insData.objectToWorldMatrix;
