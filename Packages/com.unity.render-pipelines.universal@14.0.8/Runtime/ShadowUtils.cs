@@ -184,7 +184,7 @@ namespace UnityEngine.Rendering.Universal
             shadowMatrix = GetShadowTransform(projMatrix, viewMatrix);
             return success;
         }
-
+        public static Vector4[] CullSpheres = new Vector4[3];
         public static Action<CommandBuffer, Camera, CameraRenderType, int> CustomRenderShadowSlice;
         /// <summary>
         /// Renders shadows to a shadow slice.

@@ -136,6 +136,14 @@ namespace UnityEngine.Rendering.Universal.Internal
                     return SetupForEmptyRendering(ref renderingData);
             }
 
+            for(int i = 0; i < 3;i++)
+            {
+                if(m_CascadeSplitDistances.Length > i)
+                {
+                    ShadowUtils.CullSpheres[i] = m_CascadeSplitDistances[i];
+                }
+            }
+
             ShadowUtils.ShadowRTReAllocateIfNeeded(ref m_MainLightShadowmapTexture, renderTargetWidth, renderTargetHeight, k_ShadowmapBufferBits, name: "_MainLightShadowmapTexture");
 
             m_MaxShadowDistanceSq = renderingData.cameraData.maxShadowDistance * renderingData.cameraData.maxShadowDistance;

@@ -17,7 +17,9 @@ StructuredBuffer<InstanceData> _InstanceDataBuffer;
 StructuredBuffer<float3> _VerticesBuffer;
 StructuredBuffer<uint> _MeshletVerticesBuffer;
 StructuredBuffer<uint> _MeshletTrianglesBuffer;
-StructuredBuffer<Meshlet> _ShadowCullingResult;
+StructuredBuffer<Meshlet> _ShadowCullingResult0;
+StructuredBuffer<Meshlet> _ShadowCullingResult1;
+StructuredBuffer<Meshlet> _ShadowCullingResult2;
 
 struct Attributes
 {
@@ -31,9 +33,19 @@ struct Varyings
     float4 positionCS   : SV_POSITION;
 };
 
+int csmIdx;
 float4 GetShadowPositionHClip(Attributes input)
 {
-    Meshlet meshlet = _ShadowCullingResult[input.insID];
+    Meshlet meshlet;
+    if(csmIdx == 0){
+        meshlet = _ShadowCullingResult0[input.insID];
+    }
+    else if(csmIdx == 1){
+        meshlet = _ShadowCullingResult1[input.insID];
+    }
+    else if(csmIdx == 2){
+        meshlet = _ShadowCullingResult2[input.insID];
+    }
     uint index = _MeshletTrianglesBuffer[meshlet.triangleOffset + input.vertID];
     float3 vertex = _VerticesBuffer[_MeshletVerticesBuffer[meshlet.vertexOffset + index]];
     InstanceData insData = _InstanceDataBuffer[0];

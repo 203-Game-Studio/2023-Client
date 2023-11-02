@@ -125,7 +125,9 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private ComputeBuffer meshletVerticesBuffer;
         private ComputeBuffer meshletTrianglesBuffer;
         private ComputeBuffer clusterResult;
-        private ComputeBuffer shadowResult;
+        private ComputeBuffer shadowResult0;
+        private ComputeBuffer shadowResult1;
+        private ComputeBuffer shadowResult2;
         private ComputeBuffer triangleResult;
 
         private ComputeBuffer debugColorBuffer;
@@ -135,15 +137,19 @@ public class GPUDrivenFeature : ScriptableRendererFeature
         private RTHandle depthTexture;
 
         private List<uint> args;
-        private static ComputeBuffer argsBuffer;
+        private ComputeBuffer argsBuffer;
         private List<uint> shadowArgs;
-        private static ComputeBuffer shadowArgsBuffer;
+        private static ComputeBuffer shadowArgsBuffer0;
+        private static ComputeBuffer shadowArgsBuffer1;
+        private static ComputeBuffer shadowArgsBuffer2;
         private ComputeShader cullingShader;
         private int clusterKernel;
         private int triangleKernel;
         private int shadowKernel;
         private ComputeBuffer countBuffer;
         private uint[] countBufferData = new uint[1] { 0 };
+
+        private float[] cascadeDistances;
 
         public ComputeBuffer CreateBufferAndSetData<T>(T[] array, int stride) where T : struct
         {
@@ -162,6 +168,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             triangleKernel = cullingShader.FindKernel("TriangleCulling");
             shadowKernel = cullingShader.FindKernel("ShadowCulling");
             mainCamera = Camera.main;
+            cascadeDistances = GetShadowCascadesDistances();
             UpdateBuffer();
         }
 
@@ -179,7 +186,11 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             instanceDataBuffer = CreateBufferAndSetData(instanceData, sizeof(Matrix4x4));
             clusterResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
                 ComputeBufferType.Append);
-            shadowResult = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
+            shadowResult0 = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
+                ComputeBufferType.Append);
+            shadowResult1 = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
+                ComputeBufferType.Append);
+            shadowResult2 = new ComputeBuffer(meshData.meshlets.Length, sizeof(ClusterizerUtil.Meshlet),
                 ComputeBufferType.Append);
             triangleResult = new ComputeBuffer(meshData.meshlets.Length*64, sizeof(uint)*2, ComputeBufferType.Append);
 
@@ -199,7 +210,9 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             material.SetBuffer("_InstanceDataBuffer", instanceDataBuffer);
             material.SetBuffer("_TriangleResult", triangleResult);
             material.SetBuffer("_ClusterCullingResult", clusterResult);
-            material.SetBuffer("_ShadowCullingResult", shadowResult);
+            material.SetBuffer("_ShadowCullingResult0", shadowResult0);
+            material.SetBuffer("_ShadowCullingResult1", shadowResult1);
+            material.SetBuffer("_ShadowCullingResult2", shadowResult2);
             
             countBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
 
@@ -221,15 +234,21 @@ public class GPUDrivenFeature : ScriptableRendererFeature
 
             cullingShader.SetBuffer(shadowKernel, "_MeshletBuffer", meshletBuffer);
             cullingShader.SetBuffer(shadowKernel, "_InstanceDataBuffer", instanceDataBuffer);
-            cullingShader.SetBuffer(shadowKernel, "_ShadowResult", shadowResult);
+            cullingShader.SetBuffer(shadowKernel, "_ShadowResult0", shadowResult0);
+            cullingShader.SetBuffer(shadowKernel, "_ShadowResult1", shadowResult1);
+            cullingShader.SetBuffer(shadowKernel, "_ShadowResult2", shadowResult2);
 
             args = new List<uint>(){3, (uint)meshData.meshlets.Length, 0, 0, 0};
             argsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
             argsBuffer.SetData(args);
 
             shadowArgs = new List<uint>(){64*3, (uint)meshData.meshlets.Length, 0, 0, 0};
-            shadowArgsBuffer = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
-            shadowArgsBuffer.SetData(shadowArgs);
+            shadowArgsBuffer0 = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
+            shadowArgsBuffer0.SetData(shadowArgs);
+            shadowArgsBuffer1 = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
+            shadowArgsBuffer1.SetData(shadowArgs);
+            shadowArgsBuffer2 = new ComputeBuffer(1, sizeof(uint) * 5, ComputeBufferType.IndirectArguments);
+            shadowArgsBuffer2.SetData(shadowArgs);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData){
@@ -250,14 +269,48 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                     VisibleLight shadowLight = renderingData.lightData.visibleLights[shadowLightIndex];
                     Light light = shadowLight.light;
                     if (light.shadows != LightShadows.None) {
-                        cullingShader.SetVector("_LightDir", light.transform.forward);
-                        shadowResult.SetCounterValue(0);
+                        Vector3[] standFrustumV = GetFrustum8Point(mainCamera);
+                        Vector4[] standFrustumVertices = new Vector4[8];
+                        for (int i = 0; i < 8; i++)
+                        {
+                            standFrustumVertices[i] = new Vector4(standFrustumV[i].x, standFrustumV[i].y, standFrustumV[i].z, 0);
+                        }
+
+                        for (int i = 0; i < cascadeDistances.Length; i++)
+                        {
+                            standFrustumVertices[i].w = cascadeDistances[i];
+                        }
+
+                        var mainLightDir = light.transform.forward;
+                        standFrustumVertices[3].w = mainCamera.farClipPlane;
+                        standFrustumVertices[4].w = cascadeDistances.Length;
+                        standFrustumVertices[5].w = mainLightDir.x;
+                        standFrustumVertices[6].w = mainLightDir.y;
+                        standFrustumVertices[7].w = mainLightDir.z;
+
+                        cullingShader.SetVectorArray("_StandFrustumVertices", standFrustumVertices);
+                        cullingShader.SetVectorArray("_CullSpheres", ShadowUtils.CullSpheres);
+
+                        shadowResult0.SetCounterValue(0);
+                        shadowResult1.SetCounterValue(0);
+                        shadowResult2.SetCounterValue(0);
                         cullingShader.Dispatch(shadowKernel, 1 + (meshData.meshlets.Length / 64), 1, 1);
-                        ComputeBuffer.CopyCount(shadowResult, countBuffer, 0);
+                        
+                        //csm0
+                        ComputeBuffer.CopyCount(shadowResult0, countBuffer, 0);
                         countBuffer.GetData(countBufferData);
-                        uint shadowClusterCount = countBufferData[0];
-                        shadowArgs[1] = shadowClusterCount;
-                        shadowArgsBuffer.SetData(shadowArgs);
+                        shadowArgs[1] = countBufferData[0];
+                        shadowArgsBuffer0.SetData(shadowArgs);
+                        //csm1
+                        ComputeBuffer.CopyCount(shadowResult1, countBuffer, 0);
+                        countBuffer.GetData(countBufferData);
+                        shadowArgs[1] = countBufferData[0];
+                        shadowArgsBuffer1.SetData(shadowArgs);
+                        //csm2
+                        ComputeBuffer.CopyCount(shadowResult2, countBuffer, 0);
+                        countBuffer.GetData(countBufferData);
+                        shadowArgs[1] = countBufferData[0];
+                        shadowArgsBuffer2.SetData(shadowArgs);
                     }
                 }
 
@@ -291,6 +344,64 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             }
         }
 
+        float[] GetShadowCascadesDistances()
+        {
+            UniversalRenderPipelineAsset urpAsset = GraphicsSettings.renderPipelineAsset as UniversalRenderPipelineAsset;
+            int cascadeCount = urpAsset.shadowCascadeCount;
+            float[] cascadeDistances = new float[cascadeCount];
+
+            switch (cascadeCount)
+            {
+                case 2:
+                    cascadeDistances[0] = urpAsset.cascade2Split;
+                    break;
+                case 3:
+                    Vector2 cascade3Splits = urpAsset.cascade3Split;
+                    cascadeDistances[0] = cascade3Splits.x;
+                    cascadeDistances[1] = cascade3Splits.y;
+                    break;
+                case 4:
+                    Vector3 cascade4Splits = urpAsset.cascade4Split;
+                    cascadeDistances[0] = cascade4Splits.x;
+                    cascadeDistances[1] = cascade4Splits.y;
+                    cascadeDistances[2] = cascade4Splits.z;
+                    break;
+            }
+
+            float shadowDistance = urpAsset.shadowDistance;
+            for (int i = 0; i < cascadeDistances.Length - 1; i++)
+            {
+                cascadeDistances[i] *= shadowDistance;
+            }
+            cascadeDistances[cascadeDistances.Length - 1] = shadowDistance;
+
+            return cascadeDistances;
+        }
+
+        Vector3[] GetFrustum8Point(Camera camera)
+        {
+            Vector3[] nearCorners = GetFrustumCorners(camera, camera.nearClipPlane);
+            Vector3[] farCorners = GetFrustumCorners(camera, camera.farClipPlane);
+    
+            Vector3[] frustumVertices = new Vector3[8];
+            nearCorners.CopyTo(frustumVertices, 0);
+            farCorners.CopyTo(frustumVertices, 4);
+            return frustumVertices;
+        }
+
+        private Vector3[] GetFrustumCorners(Camera camera, float distance)
+        {
+            Vector3[] frustumCorners = new Vector3[4];
+
+            camera.CalculateFrustumCorners(new Rect(0, 0, 1, 1), distance, Camera.MonoOrStereoscopicEye.Mono, frustumCorners);
+
+            for (int i = 0; i < 4; i++)
+            {
+                frustumCorners[i] = camera.transform.TransformPoint(frustumCorners[i]);
+            }
+            return frustumCorners;
+        }
+
         public static void RenderShadowmap(CommandBuffer cmd, Camera camera, CameraRenderType renderType, int cascadeIndex)
         {
             if (camera == null || renderType != CameraRenderType.Base)
@@ -303,23 +414,19 @@ public class GPUDrivenFeature : ScriptableRendererFeature
                 return;
             }
 
-            int passIndex = 1;
+            material.SetInt("csmIdx", cascadeIndex);
             switch(cascadeIndex)
             {
                 case 0:
-                    //Shader.SetGlobalFloat(HZBMatParameterName._CSMOffset0, m_gManager.ShadowClusterCount * cascadeIndex);
+                    cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, shadowArgsBuffer0, 0);
                     break;
                 case 1:
-                    //Shader.SetGlobalFloat(HZBMatParameterName._CSMOffset1, m_gManager.ShadowClusterCount * cascadeIndex);
-                    passIndex = 2;
+                    cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, shadowArgsBuffer1, 0);
                     break;
                 case 2:
-                    //Shader.SetGlobalFloat(HZBMatParameterName._CSMOffset2, m_gManager.ShadowClusterCount * cascadeIndex);
-                    passIndex = 3;
+                    cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, shadowArgsBuffer2, 0);
                     break;
             }
-
-            cmd.DrawProceduralIndirect(Matrix4x4.identity, material, 1, MeshTopology.Triangles, shadowArgsBuffer, 0);
         }
 
         public void Dispose(){
