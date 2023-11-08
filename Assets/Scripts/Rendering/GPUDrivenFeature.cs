@@ -11,7 +11,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     [System.Serializable]
     public class Settings
     {
-        public Shader shader;
+        //public Shader shader;
+        public Material material;
         public ComputeShader cullingShader;
     }
     public Settings settings = new Settings();
@@ -42,6 +43,7 @@ public class GPUDrivenFeature : ScriptableRendererFeature
     public override void Create()
     {
         InitDepthTexture();
+        //settings.material = CoreUtils.CreateEngineMaterial(settings.shader);
         drawpass ??= new(settings, depthTexture);
         depthPass ??= new(depthTexture);
         ShadowUtils.CustomRenderShadowSlice -= GPUDrivenRenderPass.RenderShadowmap;
@@ -162,8 +164,8 @@ public class GPUDrivenFeature : ScriptableRendererFeature
             this.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
             this.settings = settings;
             this.cullingShader = settings.cullingShader;
+            material = settings.material;
             this.depthTexture = depthTexture;
-            material = CoreUtils.CreateEngineMaterial(settings.shader);
             clusterKernel = cullingShader.FindKernel("ClusterCulling");
             triangleKernel = cullingShader.FindKernel("TriangleCulling");
             shadowKernel = cullingShader.FindKernel("ShadowCulling");
