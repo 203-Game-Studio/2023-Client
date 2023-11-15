@@ -13,9 +13,12 @@ public class SpriteGenerator : MonoBehaviour
     public Shader normalShader;
     public Shader metallicShader;
 
-    public GameObject gameObject;
+    public GameObject go;
 
     private SkinnedMeshRenderer[] meshRenderers;
+    private Animator animator;
+
+    public float captureInterval = 0.1f;
     
     void Awake()
     {
@@ -23,20 +26,42 @@ public class SpriteGenerator : MonoBehaviour
 
         Screen.SetResolution(width, height,false);
 
-        meshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
+        meshRenderers = go.GetComponentsInChildren<SkinnedMeshRenderer>();
         if(meshRenderers.Length == 0) return;
+        animator = go.GetComponent<Animator>();
 
-        ScreenShotByShader(colorShader, "color");
-        ScreenShotByShader(normalShader, "normal");
-        ScreenShotByShader(metallicShader, "metallic");
+        StartCoroutine(ScreenShot());
+    }
+
+    IEnumerator ScreenShot(){
+        yield return StartCoroutine(ScreenShotByShader(colorShader, "color"));
+        yield return StartCoroutine(ScreenShotByShader(normalShader, "normal"));
+        yield return StartCoroutine(ScreenShotByShader(metallicShader, "metallic"));
         ExportTxt2Ds();
     }
 
-    void ScreenShotByShader(Shader shader, string name){
+    IEnumerator ScreenShotByShader(Shader shader, string name){
+        if (animator == null) yield break;
+
         foreach(var renderer in meshRenderers){
             renderer.material.shader = shader;
         }
-        ScreenShot(name);
+
+        int currentFrame = 1;
+        foreach (AnimationClip clip in animator.runtimeAnimatorController.animationClips)
+        {
+            float frameRate = clip.frameRate;
+
+            for (float t = 0; t < clip.length; t += captureInterval)
+            {
+                
+                animator.Play(clip.name, 0, t / clip.length);
+                yield return new WaitForEndOfFrame();
+
+                ScreenShot($"{name}_{clip.name}_{currentFrame}");
+                currentFrame++;
+            }
+        }
     }
 
     public Dictionary<string, Texture2D> outTxt2D = new Dictionary<string, Texture2D>();
