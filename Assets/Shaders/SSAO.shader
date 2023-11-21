@@ -19,6 +19,36 @@ Shader "John/SSAO"
 			HLSLPROGRAM
 				#pragma vertex Vert
 				#pragma fragment SSAOFrag
+                #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+			ENDHLSL
+		}
+
+        Pass
+        {
+            Name "Horizontal Blur"
+
+            HLSLPROGRAM
+                #pragma vertex Vert
+                #pragma fragment HorizontalBlur
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Vertical Blur"
+
+            HLSLPROGRAM
+                #pragma vertex Vert
+                #pragma fragment VerticalBlur
+            ENDHLSL
+        }
+
+		Pass
+		{
+			Name "Final"
+			HLSLPROGRAM
+				#pragma vertex Vert
+				#pragma fragment FinalFrag
 			ENDHLSL
 		}
 	}

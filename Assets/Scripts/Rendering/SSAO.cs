@@ -5,6 +5,9 @@ using UnityEngine.Rendering.Universal;
 [System.Serializable]
 public class SSAOSettings
 {
+    [SerializeField] internal float Intensity = 0.5f;
+    [SerializeField] internal float Radius = 0.25f;
+    [SerializeField] internal float Falloff = 100f;
 }
 
 public class SSAO : ScriptableRendererFeature
@@ -18,7 +21,7 @@ public class SSAO : ScriptableRendererFeature
 
     public override void Create()
     {
-        ssaoPass = new SSAOPass(RenderPassEvent.AfterRenderingOpaques);
+        ssaoPass = new SSAOPass(RenderPassEvent.BeforeRenderingPostProcessing);
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -54,9 +57,19 @@ public class SSAOPass : ScriptableRenderPass
 
     private RTHandle sourceTexture;
     private RTHandle destinationTexture;
-    private RTHandle ssaoTexture;
-    private const string ssaoTextureName = "_SSAOTexture";
+    private RTHandle ssaoTexture0;
+    private RTHandle ssaoTexture1;
+    private const string ssaoTextureName0 = "_SSAOTexture0";
+    private const string ssaoTextureName1 = "_SSAOTexture1";
     private RenderTextureDescriptor ssaoDescriptor;
+
+    private static readonly int projectionParams2ID = Shader.PropertyToID("_ProjectionParams2"),
+                ssaoParamsID = Shader.PropertyToID("_SSAOParams"),
+                cameraViewXExtentID = Shader.PropertyToID("_CameraViewXExtent"),
+                cameraViewYExtentID = Shader.PropertyToID("_CameraViewYExtent"),
+                cameraViewTopLeftCornerID = Shader.PropertyToID("_CameraViewTopLeftCorner"),
+                ssaoBlurRadiusID = Shader.PropertyToID("_SSAOBlurRadius"),
+                sourceSizeID = Shader.PropertyToID("_SourceSize");
 
     public void Setup(SSAOSettings settings, Material material, ScriptableRenderer renderer)
     {
@@ -78,11 +91,37 @@ public class SSAOPass : ScriptableRenderPass
     }
 
     public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData) {
+        Matrix4x4 v = renderingData.cameraData.GetViewMatrix();
+        Matrix4x4 p = renderingData.cameraData.GetProjectionMatrix();
+        Matrix4x4 vp = p * v;
+
+        v.SetColumn(3, new Vector4(0.0f,0.0f,0.0f,1.0f));
+        Matrix4x4 cviewProj = p * v;
+        Matrix4x4 cviewProjInv = cviewProj.inverse;
+
+        var near = renderingData.cameraData.camera.nearClipPlane;
+        Vector4 topLeftCorner = cviewProjInv.MultiplyPoint(new Vector4(-1.0f, 1.0f, -1.0f, 1.0f));
+        Vector4 topRightCorner = cviewProjInv.MultiplyPoint(new Vector4(1.0f, 1.0f, -1.0f, 1.0f));
+        Vector4 bottomLeftCorner = cviewProjInv.MultiplyPoint(new Vector4(-1.0f, -1.0f, -1.0f, 1.0f));
+
+        Vector4 cameraXExtent = topRightCorner - topLeftCorner;
+        Vector4 cameraYExtent = bottomLeftCorner - topLeftCorner;
+
+        near = renderingData.cameraData.camera.nearClipPlane;
+
+        material.SetVector(cameraViewTopLeftCornerID, topLeftCorner);
+        material.SetVector(cameraViewXExtentID, cameraXExtent);
+        material.SetVector(cameraViewYExtentID, cameraYExtent);
+        material.SetVector(projectionParams2ID, new Vector4(1.0f / near, renderingData.cameraData.worldSpaceCameraPos.x, renderingData.cameraData.worldSpaceCameraPos.y, renderingData.cameraData.worldSpaceCameraPos.z));
+
+        material.SetVector(ssaoParamsID, new Vector4(settings.Intensity, settings.Radius, settings.Falloff));
+
         ssaoDescriptor = renderingData.cameraData.cameraTargetDescriptor;
         ssaoDescriptor.msaaSamples = 1;
         ssaoDescriptor.depthBufferBits = 0;
 
-        RenderingUtils.ReAllocateIfNeeded(ref ssaoTexture, ssaoDescriptor, name: ssaoTextureName);
+        RenderingUtils.ReAllocateIfNeeded(ref ssaoTexture0, ssaoDescriptor, name: ssaoTextureName0);
+        RenderingUtils.ReAllocateIfNeeded(ref ssaoTexture1, ssaoDescriptor, name: ssaoTextureName1);
 
         ConfigureTarget(renderer.cameraColorTargetHandle);
         ConfigureClear(ClearFlag.None, Color.white);
@@ -100,10 +139,23 @@ public class SSAOPass : ScriptableRenderPass
         destinationTexture = renderingData.cameraData.renderer.cameraColorTargetHandle;
         
         using (new ProfilingScope(cmd, profilingSampler)) {
-            //CoreUtils.SetRenderTarget(cmd, ssaoTexture);
-            //cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Triangles, 3);
-            Blitter.BlitCameraTexture(cmd, ssaoTexture, destinationTexture, material, 0);
-            //Blitter.BlitCameraTexture(cmd, ssaoTexture, destinationTexture, material, 0);
+            cmd.SetGlobalVector(sourceSizeID, new Vector4(ssaoDescriptor.width, ssaoDescriptor.height, 1.0f / ssaoDescriptor.width, 1.0f / ssaoDescriptor.height));
+
+            // SSAO
+            RTHandle cameraDepthTargetHandle = renderer.cameraDepthTargetHandle;
+            Blitter.BlitCameraTexture(cmd, cameraDepthTargetHandle, ssaoTexture0, material, 0);
+            //CoreUtils.SetRenderTarget(cmd, ssaoTexture0);
+            //Blitter.BlitTexture(cmd, cameraDepthTargetHandle.nameID, viewportScale, material, 0);
+            //cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Triangles, 0);
+
+            // Horizontal Blur
+            Blitter.BlitCameraTexture(cmd, ssaoTexture0, ssaoTexture1, material, 1);
+
+            // Vertical Blur
+            Blitter.BlitCameraTexture(cmd, ssaoTexture1, ssaoTexture0, material, 2);
+
+            // Final Pass
+            Blitter.BlitCameraTexture(cmd, ssaoTexture0, destinationTexture, material, 3);
         }
 
         context.ExecuteCommandBuffer(cmd);
@@ -116,6 +168,7 @@ public class SSAOPass : ScriptableRenderPass
     }
 
     public void Dispose(){
-        ssaoTexture?.Release();
+        ssaoTexture0?.Release();
+        ssaoTexture1?.Release();
     }
 }
