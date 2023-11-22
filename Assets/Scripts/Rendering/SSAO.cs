@@ -7,7 +7,6 @@ public class SSAOSettings
 {
     [SerializeField] internal float Intensity = 0.5f;
     [SerializeField] internal float Radius = 0.25f;
-    [SerializeField] internal float Falloff = 100f;
 }
 
 public class SSAO : ScriptableRendererFeature
@@ -54,21 +53,20 @@ public class SSAOPass : ScriptableRenderPass
     private Material material;
     private ScriptableRenderer renderer;
     private ProfilingSampler profilingSampler = new ProfilingSampler("SSAO");
-
-    private RTHandle sourceTexture;
-    private RTHandle destinationTexture;
     private RTHandle ssaoTexture0;
     private RTHandle ssaoTexture1;
+    private RTHandle ssaoTexture;
     private const string ssaoTextureName0 = "_SSAOTexture0";
     private const string ssaoTextureName1 = "_SSAOTexture1";
+    private const string ssaoTextureName = "_ScreenSpaceOcclusionTexture";
     private RenderTextureDescriptor ssaoDescriptor;
 
     private static readonly int projectionParams2ID = Shader.PropertyToID("_ProjectionParams2"),
+                ssaoTextureID = Shader.PropertyToID("_ScreenSpaceOcclusionTexture"),
                 ssaoParamsID = Shader.PropertyToID("_SSAOParams"),
                 cameraViewXExtentID = Shader.PropertyToID("_CameraViewXExtent"),
                 cameraViewYExtentID = Shader.PropertyToID("_CameraViewYExtent"),
                 cameraViewTopLeftCornerID = Shader.PropertyToID("_CameraViewTopLeftCorner"),
-                ssaoBlurRadiusID = Shader.PropertyToID("_SSAOBlurRadius"),
                 sourceSizeID = Shader.PropertyToID("_SourceSize");
 
     public void Setup(SSAOSettings settings, Material material, ScriptableRenderer renderer)
@@ -114,7 +112,7 @@ public class SSAOPass : ScriptableRenderPass
         material.SetVector(cameraViewYExtentID, cameraYExtent);
         material.SetVector(projectionParams2ID, new Vector4(1.0f / near, renderingData.cameraData.worldSpaceCameraPos.x, renderingData.cameraData.worldSpaceCameraPos.y, renderingData.cameraData.worldSpaceCameraPos.z));
 
-        material.SetVector(ssaoParamsID, new Vector4(settings.Intensity, settings.Radius, settings.Falloff));
+        material.SetVector(ssaoParamsID, new Vector4(settings.Intensity, settings.Radius));
 
         ssaoDescriptor = renderingData.cameraData.cameraTargetDescriptor;
         ssaoDescriptor.msaaSamples = 1;
@@ -122,6 +120,7 @@ public class SSAOPass : ScriptableRenderPass
 
         RenderingUtils.ReAllocateIfNeeded(ref ssaoTexture0, ssaoDescriptor, name: ssaoTextureName0);
         RenderingUtils.ReAllocateIfNeeded(ref ssaoTexture1, ssaoDescriptor, name: ssaoTextureName1);
+        RenderingUtils.ReAllocateIfNeeded(ref ssaoTexture, ssaoDescriptor, name: ssaoTextureName);
 
         ConfigureTarget(renderer.cameraColorTargetHandle);
         ConfigureClear(ClearFlag.None, Color.white);
@@ -135,18 +134,15 @@ public class SSAOPass : ScriptableRenderPass
         var cmd = CommandBufferPool.Get();
         context.ExecuteCommandBuffer(cmd);
         cmd.Clear();
-
-        destinationTexture = renderingData.cameraData.renderer.cameraColorTargetHandle;
         
         using (new ProfilingScope(cmd, profilingSampler)) {
             cmd.SetGlobalVector(sourceSizeID, new Vector4(ssaoDescriptor.width, ssaoDescriptor.height, 1.0f / ssaoDescriptor.width, 1.0f / ssaoDescriptor.height));
+            cmd.SetGlobalTexture(ssaoTextureID, ssaoTexture);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.ScreenSpaceOcclusion, true);
 
             // SSAO
             RTHandle cameraDepthTargetHandle = renderer.cameraDepthTargetHandle;
             Blitter.BlitCameraTexture(cmd, cameraDepthTargetHandle, ssaoTexture0, material, 0);
-            //CoreUtils.SetRenderTarget(cmd, ssaoTexture0);
-            //Blitter.BlitTexture(cmd, cameraDepthTargetHandle.nameID, viewportScale, material, 0);
-            //cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Triangles, 0);
 
             // Horizontal Blur
             Blitter.BlitCameraTexture(cmd, ssaoTexture0, ssaoTexture1, material, 1);
@@ -155,7 +151,7 @@ public class SSAOPass : ScriptableRenderPass
             Blitter.BlitCameraTexture(cmd, ssaoTexture1, ssaoTexture0, material, 2);
 
             // Final Pass
-            Blitter.BlitCameraTexture(cmd, ssaoTexture0, destinationTexture, material, 3);
+            Blitter.BlitCameraTexture(cmd, ssaoTexture0, ssaoTexture, material, 3);
         }
 
         context.ExecuteCommandBuffer(cmd);
@@ -163,8 +159,7 @@ public class SSAOPass : ScriptableRenderPass
     }
 
     public override void OnCameraCleanup(CommandBuffer cmd) {
-        sourceTexture = null;
-        destinationTexture = null;
+        //CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.ScreenSpaceOcclusion, false);
     }
 
     public void Dispose(){
