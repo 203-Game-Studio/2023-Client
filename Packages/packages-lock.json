@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.limworks.urpssrpackage": {
+      "version": "file:com.limworks.urpssrpackage@353c5a0379",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.addressables": {
       "version": "file:com.unity.addressables@1.21.14",
       "depth": 0,
