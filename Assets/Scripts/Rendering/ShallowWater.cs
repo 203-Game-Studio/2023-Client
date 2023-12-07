@@ -4,13 +4,40 @@ using UnityEngine;
 public class ShallowWater : MonoBehaviour
 {
     [SerializeField] private Material waterMat;
+    [SerializeField] private ComputeShader waterCS;
+    private int initKernel;
+    private int updateKernel;
+    [SerializeField] private float damping = 1.0f;
+    [SerializeField] private float alpha = 0.5f;
+    [SerializeField] private float beta = 1.0f;
 
     private RenderTexture h1RT;
+    private RenderTexture h2RT;
+    private RenderTexture h3RT;
 
     private void Awake()
     {
         h1RT = CreateRT(1024);
-        waterMat.SetTexture("_H1RT", h1RT);
+        h2RT = CreateRT(1024);
+        h3RT = CreateRT(1024);
+        waterMat.SetTexture("_WaterHeightMap", h3RT);
+        initKernel = waterCS.FindKernel("Init");
+        updateKernel = waterCS.FindKernel("Update");
+        waterCS.SetTexture(initKernel,"_HeightTexture", h3RT);
+        waterCS.Dispatch(initKernel, 1024/8, 1024/8, 1);
+        waterCS.SetTexture(updateKernel,"_HeightTexture1", h1RT);
+        waterCS.SetTexture(updateKernel,"_HeightTexture2", h2RT);
+        waterCS.SetTexture(updateKernel,"_HeightTexture", h3RT);
+    }
+
+    private void Update()
+    {
+        Graphics.Blit(h2RT, h1RT);
+        Graphics.Blit(h3RT, h2RT);
+        waterCS.SetFloat("_Damping", damping);
+        waterCS.SetFloat("_Alpha", alpha);
+        waterCS.SetFloat("_Beta", beta);
+        waterCS.Dispatch(updateKernel, 1024/8, 1024/8, 1);
     }
 
     private Mesh _waterMesh;

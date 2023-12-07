@@ -34,8 +34,8 @@ Shader "John/ShallowWater"
                 float2 uv           : TEXCOORD0;
             };
 
-            TEXTURE2D(_H1RT);
-            SAMPLER(sampler_H1RT);
+            TEXTURE2D(_WaterHeightMap);
+            SAMPLER(sampler_WaterHeightMap);
 
             Varyings LitPassVertex(Attributes input)
             {
@@ -49,7 +49,7 @@ Shader "John/ShallowWater"
 
             half4 LitPassFragment(Varyings input) : SV_Target
             {
-                half h = SAMPLE_TEXTURE2D(_H1RT, sampler_H1RT, input.uv);
+                half h = SAMPLE_TEXTURE2D(_WaterHeightMap, sampler_WaterHeightMap, input.uv);
 
                 return half4(h, h, h, 1);
             }
