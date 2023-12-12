@@ -32,6 +32,14 @@ public class ShallowWater : MonoBehaviour
 
     private void Update()
     {
+        Matrix4x4 viewMatrix = Camera.main.worldToCameraMatrix;
+        Matrix4x4 projectMatrix = GL.GetGPUProjectionMatrix(Camera.main.projectionMatrix, false);
+        Matrix4x4 matrixVP = projectMatrix * viewMatrix;
+        Matrix4x4 invMatrixVP = matrixVP.inverse;
+        var material = GetComponent<Renderer>().sharedMaterial;
+        material.SetMatrix("_MatrixVP",matrixVP);
+        material.SetMatrix("_MatrixInvVP",invMatrixVP);
+
         Graphics.Blit(h2RT, h1RT);
         Graphics.Blit(h3RT, h2RT);
         waterCS.SetFloat("_Damping", damping);

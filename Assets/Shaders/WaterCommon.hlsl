@@ -28,12 +28,17 @@ CBUFFER_START(UnityPerMaterial)
     float   _SkyBoxReflectSmooth;
     float   _RefractionPower;
     float   _FoamPower;
+    float   _CausticsPower;
 CBUFFER_END
+
+float4x4 _MatrixVP;
+float4x4 _MatrixInvVP;
 
 TEXTURE2D(_BaseMap);                SAMPLER(sampler_BaseMap);
 TEXTURE2D(_WaveNormalMap1);         SAMPLER(sampler_WaveNormalMap1);
 TEXTURE2D(_WaveNormalMap2);         SAMPLER(sampler_WaveNormalMap2);
 TEXTURE2D(_FoamTex);                SAMPLER(sampler_FoamTex);
+TEXTURE2D(_CausticsTex);            SAMPLER(sampler_CausticsTex);
 TEXTURECUBE(_SkyBox);               SAMPLER(sampler_SkyBox);
 TEXTURE2D(_CameraOpaqueTexture);    SAMPLER(sampler_CameraOpaqueTexture);
 
@@ -65,11 +70,24 @@ half3 GetRefractionColor(float2 screenUV, float3 normal){
     return refractionColor;
 }
 
-float GetFoamStrength(float4 positionCS, float2 screenUV){
-    float depth = SampleSceneDepth(screenUV);
-    float zDepth = positionCS.z / positionCS.w;
-    float dis = abs(zDepth - depth);
-    return pow(max(0,dis / lerp(0,1,_FoamPower)),4);
+float3 TransformCSToWS(float2 screenUV, float depth){
+    float3 positionCS = float3(screenUV * 2 - 1, depth);
+    float4 positionWS = mul(_MatrixInvVP, float4(positionCS, 1));
+    positionWS /= positionWS.w;
+    return positionWS.xyz;
+}
+
+half3 GetCausticsColor(float2 screenUV, float depth, float3 normal){
+    float3 positionWS = TransformCSToWS(screenUV, depth);
+    float2 causticsUV = normal.xz * 0.25 + positionWS.xz;
+    half4 causticsColor = SAMPLE_TEXTURE2D(_CausticsTex, sampler_CausticsTex, causticsUV * 0.4);
+    return causticsColor.rgb;
+}
+
+float GetFoamStrength(float3 positionWS, float2 screenUV, float depth){
+    float3 behindPositionWS = TransformCSToWS(screenUV, depth);
+    float dis = distance(positionWS, behindPositionWS);
+    return pow(max(0,1 - dis / lerp(0.1,1,_FoamPower)),4);
 }
 
 #endif

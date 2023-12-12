@@ -22,6 +22,9 @@ Shader "John/ShallowWater"
 
         _FoamTex("Foam Map", 2D) = "white" {}
         _FoamPower("Foam Power", Range(0, 1)) = 0.5
+
+        _CausticsTex("Caustics Map", 2D) = "white" {}
+        _CausticsPower("Caustics Power", Range(0, 1)) = 0.5
     }
 
     SubShader
@@ -88,11 +91,15 @@ Shader "John/ShallowWater"
                 color += diffuseColor;
                 //color += SampleSH(waveBlendNormal) * 0.2;
 
-                /*float foamStrength = GetFoamStrength(input.positionCS, screenUV);
+                float depth = SampleSceneDepth(screenUV);
+                float foamStrength = GetFoamStrength(input.positionWS, screenUV, depth);
                 float2 foamUV = (input.uv + _Time.y * float2(0.01,0.01) + waveBlendNormal.xz * 0.005) * 30;
                 half3 foamColor = SAMPLE_TEXTURE2D(_FoamTex, sampler_FoamTex, foamUV);
 
-                color = lerp(color, foamColor, foamStrength);*/
+                half3 causticsColor = GetCausticsColor(screenUV, depth, waveBlendNormal);
+                color += causticsColor * _CausticsPower;
+
+                color = lerp(color, foamColor, foamStrength);
 
                 return half4(color, 1);
             }
