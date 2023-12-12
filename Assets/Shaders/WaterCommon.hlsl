@@ -16,7 +16,8 @@ struct Varyings
 
 CBUFFER_START(UnityPerMaterial)
     float4  _BaseMap_ST;
-    float4  _BaseColor;
+    float4  _ShallowWaterColor;
+    float4  _DeepWaterColor;
     //float4  _WaveNormalMap_ST;
     float   _WaveNormalScale1;
     float   _WaveNormalScale2;

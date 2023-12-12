@@ -3,7 +3,8 @@ Shader "John/ShallowWater"
     Properties
     {
         //[MainTexture] _BaseMap("Albedo", 2D) = "white" {}
-        _BaseColor("Water Color", Color) = (1, 1, 1, 1)
+        _ShallowWaterColor("Shallow Water Color", Color) = (1, 1, 1, 1)
+        _DeepWaterColor("Deep Water Color", Color) = (1, 1, 1, 1)
 		_WaveNormalMap1("Wave Normal Map 1", 2D) = "bump"{}
 		_WaveNormalScale1("Wave Normal Scale", Range(0.1, 1)) = 1
 		_WaveNormalMap2("Wave Normal Map 2", 2D) = "bump"{}
@@ -77,8 +78,6 @@ Shader "John/ShallowWater"
                 
                 float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
-
-                half3 diffuseColor = WaterDiffuse(mainLight.shadowAttenuation, mainLight.direction, mainLight.color, waveBlendNormal) * _BaseColor;
                 
                 half3 specularColor = WaterSpecular(viewDir, mainLight.direction, mainLight.color, waveBlendNormal);
                 specularColor += GetSkyBoxColor(viewDir, waveBlendNormal);
@@ -88,13 +87,17 @@ Shader "John/ShallowWater"
 
                 float reflectionCoefficient = GetReflectionCoefficient(viewDir, waveBlendNormal);
                 half3 color = lerp(refractionColor, specularColor, reflectionCoefficient);
-                color += diffuseColor;
-                //color += SampleSH(waveBlendNormal) * 0.2;
+                color += SampleSH(waveBlendNormal) * 0.1;
 
                 float depth = SampleSceneDepth(screenUV);
                 float foamStrength = GetFoamStrength(input.positionWS, screenUV, depth);
                 float2 foamUV = (input.uv + _Time.y * float2(0.01,0.01) + waveBlendNormal.xz * 0.005) * 30;
                 half3 foamColor = SAMPLE_TEXTURE2D(_FoamTex, sampler_FoamTex, foamUV);
+
+                float depthCoefficient = pow(saturate((depth*5)), 2);
+                half3 waterBaseColor = lerp(_DeepWaterColor, _ShallowWaterColor, depthCoefficient);
+                half3 diffuseColor = WaterDiffuse(mainLight.shadowAttenuation, mainLight.direction, mainLight.color, waveBlendNormal) * waterBaseColor;
+                color += diffuseColor;
 
                 half3 causticsColor = GetCausticsColor(screenUV, depth, waveBlendNormal);
                 color += causticsColor * _CausticsPower;
