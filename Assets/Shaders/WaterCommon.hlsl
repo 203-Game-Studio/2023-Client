@@ -30,6 +30,7 @@ CBUFFER_START(UnityPerMaterial)
     float   _RefractionPower;
     float   _FoamPower;
     float   _CausticsPower;
+    float   _DepthDistancePower;
 CBUFFER_END
 
 float4x4 _MatrixVP;
@@ -85,10 +86,14 @@ half3 GetCausticsColor(float2 screenUV, float depth, float3 normal){
     return causticsColor.rgb;
 }
 
-float GetFoamStrength(float3 positionWS, float2 screenUV, float depth){
+float GetPosDistanceWS(float3 positionWS, float2 screenUV, float depth){
     float3 behindPositionWS = TransformCSToWS(screenUV, depth);
     float dis = distance(positionWS, behindPositionWS);
-    return pow(max(0,1 - dis / lerp(0.1,1,_FoamPower)),4);
+    return dis;
+}
+
+float GetFoamStrength(float distance){
+    return pow(max(0, 1 - distance / lerp(0.1, 1, _FoamPower)), 4);
 }
 
 #endif
