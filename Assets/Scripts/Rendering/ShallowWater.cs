@@ -46,6 +46,18 @@ public class ShallowWater : MonoBehaviour
         waterCS.SetVector("_ObjectPos", new Vector4(moveObject.position.x, moveObject.position.y, moveObject.position.z, radius));
         waterCS.Dispatch(initKernel, 1024/8, 1024/8, 1);
 
+        UpdateWater();
+        //UpdateWater();
+    }
+
+    private void OnDestroy()
+    {
+        h1RT.Release();
+        h2RT.Release();
+        h3RT.Release();
+    }
+
+    private void UpdateWater(){
         Graphics.Blit(h2RT, h1RT);
         Graphics.Blit(h3RT, h2RT);
         waterCS.SetFloat("_Damping", damping);
@@ -58,7 +70,7 @@ public class ShallowWater : MonoBehaviour
     private Mesh waterMesh{
         get{
             if(!_waterMesh){
-                _waterMesh = CreatePlaneMesh(256, 10);
+                _waterMesh = CreatePlaneMesh(1024, 10);
             }
             return _waterMesh;
         }
@@ -66,6 +78,7 @@ public class ShallowWater : MonoBehaviour
 
     Mesh CreatePlaneMesh(int count, float size) {
 		Mesh mesh = new Mesh();
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         float gridSize = size / count;
         float halfSize = size * 0.5f;
         float oneOverCount = 1.0f / count;

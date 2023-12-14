@@ -18,7 +18,7 @@ void Init(uint2 id : SV_DispatchThreadID)
     float zPos = (_ObjectPos.z + 5.0) / 10.0 * 1024.0;
     float len = (id.x-ceil(xPos))*(id.x-ceil(xPos)) + (id.y-ceil(zPos))*(id.y-ceil(zPos));
     if(len < _ObjectPos.w * _ObjectPos.w){
-        _HeightTexture[id.xy] = (1- len/(_ObjectPos.w * _ObjectPos.w))*10;
+        _HeightTexture[id.xy] = 1;
     }
 }
 

@@ -60,8 +60,21 @@ Shader "John/ShallowWater"
                 Varyings output;
 
                 output.positionWS = TransformObjectToWorld(input.positionOS);
-                output.positionCS = TransformWorldToHClip(output.positionWS);
                 //output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
+                float2 texGridSizeX = float2(1/1024.0, 0);
+                float2 texGridSizeY = float2(0, 1/1024.0);
+                float waterHeight = SAMPLE_TEXTURE2D_LOD(_WaterHeightMap, sampler_WaterHeightMap, float4(input.uv, 0.0, 0.0), 0.0);
+                float waterHeightX1 = SAMPLE_TEXTURE2D_LOD(_WaterHeightMap, sampler_WaterHeightMap, float4(input.uv - texGridSizeX, 0.0, 0.0), 0.0);
+                float waterHeightX2 = SAMPLE_TEXTURE2D_LOD(_WaterHeightMap, sampler_WaterHeightMap, float4(input.uv + texGridSizeX, 0.0, 0.0), 0.0);
+                float waterHeightY1 = SAMPLE_TEXTURE2D_LOD(_WaterHeightMap, sampler_WaterHeightMap, float4(input.uv - texGridSizeY, 0.0, 0.0), 0.0);
+                float waterHeightY2 = SAMPLE_TEXTURE2D_LOD(_WaterHeightMap, sampler_WaterHeightMap, float4(input.uv + texGridSizeY, 0.0, 0.0), 0.0);
+                float heightX = (waterHeightX2 - waterHeightX1) * 0.5;
+                float heightY = (waterHeightY2 - waterHeightY1) * 0.5;
+                float3 heightNormal = float3(heightX*2.5, waterHeight, heightY*2.5);
+                output.positionWS.y += waterHeight*0.25;
+                output.positionCS = TransformWorldToHClip(output.positionWS);
+                output.normalWS = TransformObjectToWorldNormal(input.positionOS);
+                output.normalWS = heightNormal;
                 output.uv = input.uv;
 
                 return output;
@@ -70,21 +83,11 @@ Shader "John/ShallowWater"
             half4 LitPassFragment(Varyings input) : SV_Target
             {
                 float2 speed = _Time.y * float2(_WaveXSpeed, _WaveYSpeed);
-                float3 waveNormal1 = UnpackNormalScale(SAMPLE_TEXTURE2D(_WaveNormalMap1, sampler_WaveNormalMap1, input.uv + speed),_WaveNormalScale1).xzy;
-                float3 waveNormal2 = UnpackNormalScale(SAMPLE_TEXTURE2D(_WaveNormalMap2, sampler_WaveNormalMap2, input.uv - speed),_WaveNormalScale2).xzy;
+                float3 waveNormal1 = UnpackNormalScale(SAMPLE_TEXTURE2D(_WaveNormalMap1, sampler_WaveNormalMap1, (input.uv + speed)*1.2),_WaveNormalScale1).xzy;
+                float3 waveNormal2 = UnpackNormalScale(SAMPLE_TEXTURE2D(_WaveNormalMap2, sampler_WaveNormalMap2, (input.uv - speed)*1.2),_WaveNormalScale2).xzy;
                 float3 waveBlendNormal = normalize(waveNormal1 + waveNormal2);
-
-                float2 texGridSizeX = float2(1/1024.0, 0);
-                float2 texGridSizeY = float2(0, 1/1024.0);
-                float waterHeight = SAMPLE_TEXTURE2D(_WaterHeightMap, sampler_WaterHeightMap, input.uv);
-                float waterHeightX1 = SAMPLE_TEXTURE2D(_WaterHeightMap, sampler_WaterHeightMap, input.uv - texGridSizeX);
-                float waterHeightX2 = SAMPLE_TEXTURE2D(_WaterHeightMap, sampler_WaterHeightMap, input.uv + texGridSizeX);
-                float waterHeightY1 = SAMPLE_TEXTURE2D(_WaterHeightMap, sampler_WaterHeightMap, input.uv - texGridSizeY);
-                float waterHeightY2 = SAMPLE_TEXTURE2D(_WaterHeightMap, sampler_WaterHeightMap, input.uv + texGridSizeY);
-                float heightX = (waterHeightX2 - waterHeightX1) * 0.5;
-                float heightY = (waterHeightY2 - waterHeightY1) * 0.5;
-                float3 heightNormal = float3(heightX*10, waterHeight, heightY*10);
-                waveBlendNormal = normalize(heightNormal + waveBlendNormal);
+                
+                waveBlendNormal = normalize(waveBlendNormal + input.normalWS);
 
                 float3 viewDir = normalize(_WorldSpaceCameraPos - input.positionWS);
                 
