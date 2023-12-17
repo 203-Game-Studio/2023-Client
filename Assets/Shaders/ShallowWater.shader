@@ -70,8 +70,8 @@ Shader "John/ShallowWater"
                 float waterHeightY2 = SAMPLE_TEXTURE2D_LOD(_WaterHeightMap, sampler_WaterHeightMap, float4(input.uv + texGridSizeY, 0.0, 0.0), 0.0);
                 float heightX = (waterHeightX2 - waterHeightX1) * 0.5;
                 float heightY = (waterHeightY2 - waterHeightY1) * 0.5;
-                float3 heightNormal = float3(heightX*2.5, waterHeight, heightY*2.5);
-                output.positionWS.y += waterHeight*0.25;
+                float3 heightNormal = float3(heightX * 2.5, waterHeight, heightY * 2.5);
+                output.positionWS.y += waterHeight * 0.25;
                 output.positionCS = TransformWorldToHClip(output.positionWS);
                 output.normalWS = TransformObjectToWorldNormal(input.positionOS);
                 output.normalWS = heightNormal;

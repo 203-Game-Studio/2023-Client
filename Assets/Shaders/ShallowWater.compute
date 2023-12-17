@@ -1,26 +1,25 @@
-#pragma kernel Init
+#pragma kernel MixHeight
 #pragma kernel Update
 
 RWTexture2D<float> _HeightTexture1;
 RWTexture2D<float> _HeightTexture2;
 RWTexture2D<float> _HeightTexture;
 
+RWTexture2D<float> _ObjectHeightMap;
+
 uniform float _Damping;
 uniform float _Alpha;
 uniform float _Beta;
 
-uniform float4 _ObjectPos;
+uniform float _WaterHeight;
 
+#pragma enable_d3d11_debug_symbols
 [numthreads(8,8,1)]
-void Init(uint2 id : SV_DispatchThreadID)
+void MixHeight(uint2 id : SV_DispatchThreadID)
 {
-    float xPos = (_ObjectPos.x + 5.0) / 10.0 * 1024.0;
-    float zPos = (_ObjectPos.z + 5.0) / 10.0 * 1024.0;
-    float len = (id.x-ceil(xPos))*(id.x-ceil(xPos)) + (id.y-ceil(zPos))*(id.y-ceil(zPos));
-    if(len < _ObjectPos.w * _ObjectPos.w){
-        _HeightTexture[id.xy] = 1;
-    }
+    _HeightTexture[id.xy] += max(_ObjectHeightMap[id.xy] - _WaterHeight, 0);
 }
+
 
 [numthreads(8,8,1)]
 void Update(uint2 id : SV_DispatchThreadID)
