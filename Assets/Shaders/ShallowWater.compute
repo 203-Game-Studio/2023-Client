@@ -4,6 +4,7 @@
 RWTexture2D<float> _HeightTexture1;
 RWTexture2D<float> _HeightTexture2;
 RWTexture2D<float> _HeightTexture;
+RWTexture2D<float> _ObstacleMaskTexture;
 
 RWTexture2D<float> _ObjectHeightMap;
 
@@ -26,29 +27,17 @@ void Update(uint2 id : SV_DispatchThreadID)
 {
     float ht1 = _HeightTexture1[id.xy];
     float ht2 = _HeightTexture2[id.xy];
-    if(id.x < 2)
-    {
-        _HeightTexture2[uint2(id.x - 1, id.y)] = ht2;
-    }
-    if(id.x > 1021)
-    {
-        _HeightTexture2[uint2(id.x + 1, id.y)] = ht2;
-    }
-    if(id.y < 2)
-    {
-        _HeightTexture2[uint2(id.x, id.y - 1)] = ht2;
-    }
-    if(id.y > 1021)
-    {
-        _HeightTexture2[uint2(id.x, id.y + 1)] = ht2;
-    }
-
     int xDir[4] = {-1, 1, 0, 0};
     int yDir[4] = {0, 0, -1, 1};
+    int count = 0;
     float hnt2 = 0;
     for(int i = 0; i < 4; ++i)
     {
-        hnt2 += _HeightTexture2[uint2(id.x + xDir[i], id.y + yDir[i])];
+        float maskVal = _ObstacleMaskTexture[uint2(id.x + xDir[i], id.y + yDir[i])];
+        if(maskVal < 0.1){
+            hnt2 += _HeightTexture2[uint2(id.x + xDir[i], id.y + yDir[i])];
+            ++count;
+        }
     }
-    _HeightTexture[id.xy] = _Damping * (ht2 + _Beta * (ht2 - ht1) + _Alpha * (hnt2 - 4 * ht2));
+    _HeightTexture[id.xy] = _Damping * (ht2 + _Beta * (ht2 - ht1) + _Alpha * (hnt2 - count * ht2));
 }

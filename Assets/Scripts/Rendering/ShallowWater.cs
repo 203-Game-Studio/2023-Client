@@ -19,9 +19,11 @@ public class ShallowWater : MonoBehaviour
     private RenderTexture h2RT;
     private RenderTexture h3RT;
     private RenderTexture objectHeightRT;
+    private RenderTexture obstacleMaskRT;
     private CommandBuffer cmd;
 
     [SerializeField] private List<MeshRenderer> visibleList = new List<MeshRenderer>();
+    [SerializeField] private List<MeshRenderer> obstacleList = new List<MeshRenderer>();
     private Material overrideMaterial;
 
     private void Awake()
@@ -42,26 +44,39 @@ public class ShallowWater : MonoBehaviour
         h1RT = CreateRT(1024, RenderTextureFormat.R8);
         h2RT = CreateRT(1024, RenderTextureFormat.R8);
         h3RT = CreateRT(1024, RenderTextureFormat.R8);
+        obstacleMaskRT = CreateRT(1024, RenderTextureFormat.R8);
         waterMat.SetTexture("_WaterHeightMap", h3RT);
         mixHeightKernel = waterCS.FindKernel("MixHeight");
         updateKernel = waterCS.FindKernel("Update");
-        waterCS.SetTexture(mixHeightKernel,"_HeightTexture", h3RT);
-        waterCS.SetTexture(updateKernel,"_HeightTexture1", h1RT);
-        waterCS.SetTexture(updateKernel,"_HeightTexture2", h2RT);
-        waterCS.SetTexture(updateKernel,"_HeightTexture", h3RT);
+        waterCS.SetTexture(mixHeightKernel, "_HeightTexture", h3RT);
+        waterCS.SetTexture(updateKernel, "_HeightTexture1", h1RT);
+        waterCS.SetTexture(updateKernel, "_HeightTexture2", h2RT);
+        waterCS.SetTexture(updateKernel, "_HeightTexture", h3RT);
+        waterCS.SetTexture(updateKernel, "_ObstacleMaskTexture", obstacleMaskRT);
     }
 
     private void Update()
     {
         cmd.Clear();
+
         cmd.SetRenderTarget(objectHeightRT);
         cmd.ClearRenderTarget(true, true, Color.clear);
         foreach(var renderer in visibleList)
         {
+            if(renderer == null) continue;
             cmd.DrawRenderer(renderer, overrideMaterial, 0, 0);
         }
         cmd.SetComputeFloatParam(waterCS, "_WaterHeight", transform.position.y);
         cmd.DispatchCompute(waterCS, mixHeightKernel, 1024/8, 1024/8, 1);
+        
+        cmd.SetRenderTarget(obstacleMaskRT);
+        cmd.ClearRenderTarget(true, true, Color.clear);
+        foreach(var renderer in obstacleList)
+        {
+            if(renderer == null) continue;
+            cmd.DrawRenderer(renderer, overrideMaterial, 0, 1);
+        }
+
         topCamera.AddCommandBuffer(CameraEvent.BeforeDepthTexture, cmd);
 
         UpdateWater();

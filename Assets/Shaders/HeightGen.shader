@@ -41,5 +41,37 @@ Shader "John/HeightGen"
             }
             ENDHLSL
         }
+
+        Pass
+        {
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct appdata
+            {
+                float4 positionOS : POSITION;
+            };
+
+            struct v2f
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            v2f vert (appdata input)
+            {
+                v2f output;
+                output.positionCS = TransformObjectToHClip(input.positionOS);
+                return output;
+            }
+
+            half4 frag (v2f input) : SV_Target
+            {
+                return half4(1.0, 0, 0, 0);
+            }
+            ENDHLSL
+        }
     }
 }
