@@ -1,0 +1,147 @@
+#pragma kernel ComputeGaussianRandom
+#pragma kernel CreateHeightSpectrum
+
+#define PI 3.14159274f
+#define G 9.81f
+
+int _N;					//fft纹理大小
+float _OceanLength;		//海洋长度
+float _A;				//phillips谱参数，影响波浪高度
+float4 _WindAndSeed;		//风和随机种子 xy为风, zw为两个随机种子
+float _Time;				//时间
+float _Lambda;			//偏移影响
+float _HeightScale;		//高度影响
+float _BubblesScale;	    //泡沫强度
+float _BubblesThreshold; //泡沫阈值
+uint rngState;           //随机
+
+RWTexture2D<float4> _GaussianRandomRT;		//高斯随机数
+RWTexture2D<float4> _HeightSpectrumRT;		//高度频谱
+
+//随机种子
+uint wangHash(uint seed)
+{
+    seed = (seed ^ 61) ^(seed >> 16);
+    seed *= 9;
+    seed = seed ^(seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^(seed >> 15);
+    return seed;
+}
+
+float rand()
+{
+    // Xorshift算法
+    rngState ^= (rngState << 13);
+    rngState ^= (rngState >> 17);
+    rngState ^= (rngState << 5);
+    return rngState / 4294967296.0f;;
+}
+
+//计算高斯随机数
+float2 gaussian(float2 id)
+{
+    //均匀分布随机数
+    rngState = wangHash(id.y * _N + id.x);
+    float x1 = rand();
+    float x2 = rand();
+
+    x1 = max(1e-6f, x1);
+    x2 = max(1e-6f, x2);
+    //计算两个相互独立的高斯随机数
+    float g1 = sqrt(-2.0f * log(x1)) * cos(2.0f * PI * x2);
+    float g2 = sqrt(-2.0f * log(x1)) * sin(2.0f * PI * x2);
+
+    return float2(g1, g2);
+}
+
+//计算高斯随机变量
+[numthreads(8, 8, 1)]
+void ComputeGaussianRandom(uint3 id: SV_DispatchThreadID)
+{
+    float2 g = gaussian(id.xy);
+
+    _GaussianRandomRT[id.xy] = float4(g, 0, 0);
+}
+
+//计算phillips谱
+float phillips(float2 k)
+{
+    float kLength = length(k);
+    kLength = max(0.001f, kLength);
+    // kLength = 1;
+    float kLength2 = kLength * kLength;
+    float kLength4 = kLength2 * kLength2;
+
+    float windLength = length(_WindAndSeed.xy);
+    float  l = windLength * windLength / G;
+    float l2 = l * l;
+
+    float damping = 0.001f;
+    float L2 = l2 * damping * damping;
+
+    //phillips谱
+    return _A * exp(-1.0f / (kLength2 * l2)) / kLength4 * exp(-kLength2 * L2);
+}
+
+//计算弥散
+float dispersion(float2 k)
+{
+    return sqrt(G * length(k));
+}
+
+//Donelan-Banner方向拓展
+float DonelanBannerDirectionalSpreading(float2 k)
+{
+    float betaS;
+    float omegap = 0.855f * G / length(_WindAndSeed.xy);
+    float ratio = dispersion(k) / omegap;
+
+    if (ratio < 0.95f)
+    {
+        betaS = 2.61f * pow(ratio, 1.3f);
+    }
+    if(ratio >= 0.95f && ratio < 1.6f)
+    {
+        betaS = 2.28f * pow(ratio, -1.3f);
+    }
+    if(ratio > 1.6f)
+    {
+        float epsilon = -0.4f + 0.8393f * exp(-0.567f * log(ratio * ratio));
+        betaS = pow(10, epsilon);
+    }
+    float theta = atan2(k.y, k.x) - atan2(_WindAndSeed.y, _WindAndSeed.x);
+
+    return betaS / max(1e-7f, 2.0f * tanh(betaS * PI) * pow(cosh(betaS * theta), 2));
+}
+
+//复数相乘
+float2 complexMultiply(float2 c1, float2 c2)
+{
+    return float2(c1.x * c2.x - c1.y * c2.y,
+    c1.x * c2.y + c1.y * c2.x);
+}
+
+//生成高度频谱
+[numthreads(8, 8, 1)]
+void CreateHeightSpectrum(uint3 id: SV_DispatchThreadID)
+{
+    float2 k = float2(2.0f * PI * id.x / _N - PI, 2.0f * PI * id.y / _N - PI);
+
+    float2 gaussian = _GaussianRandomRT[id.xy].xy;
+
+    float2 hTilde0 = gaussian * sqrt(abs(phillips(k) * DonelanBannerDirectionalSpreading(k)) / 2.0f);
+    float2 hTilde0Conj = gaussian * sqrt(abs(phillips(-k) * DonelanBannerDirectionalSpreading(-k)) / 2.0f);
+    hTilde0Conj.y *= -1.0f;
+
+    float omegat = dispersion(k) * _Time;
+    float c = cos(omegat);
+    float s = sin(omegat);
+    
+    float2 h1 = complexMultiply(hTilde0, float2(c, s));
+    float2 h2 = complexMultiply(hTilde0Conj, float2(c, -s));
+
+    float2 hTilde = h1 + h2;
+
+    _HeightSpectrumRT[id.xy] = float4(hTilde, 0, 0);
+}
