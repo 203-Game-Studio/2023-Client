@@ -2,6 +2,32 @@ Shader "John/FFTOcean"
 {
     Properties
     {
+        //[MainTexture] _BaseMap("Albedo", 2D) = "white" {}
+        _ShallowWaterColor("Shallow Water Color", Color) = (1, 1, 1, 1)
+        _DeepWaterColor("Deep Water Color", Color) = (1, 1, 1, 1)
+        _DepthDistancePower("Depth Distance Power", Range(0, 1)) = 0.5
+
+		_WaveNormalMap1("Wave Normal Map 1", 2D) = "bump"{}
+		_WaveNormalScale1("Wave Normal Scale", Range(0.1, 1)) = 1
+		_WaveNormalMap2("Wave Normal Map 2", 2D) = "bump"{}
+		_WaveNormalScale2("Wave Normal Scale", Range(0.1, 1)) = 1
+
+		_WaveXSpeed("Wave X Speed", Range(-0.1, 0.1)) = 0.01
+		_WaveYSpeed("Wave Y Speed", Range(-0.1, 0.1)) = 0.01
+
+        _SkyBox("SkyBox", Cube) = "white"{}
+        _SkyBoxReflectSmooth("SkyBox Reflect Smooth", Range(1, 5)) = 3
+        _RefractionPower("Refraction Power", Range(0, 0.1)) = 0.05
+
+        _Gloss("Gloss", Float) = 10.0
+        _Shininess("Shininess", Float) = 200
+        _FresnelPower("Fresnel Power", Range(1, 5)) = 3
+
+        _FoamTex("Foam Map", 2D) = "white" {}
+        _FoamPower("Foam Power", Range(0, 1)) = 0.5
+
+        _CausticsTex("Caustics Map", 2D) = "white" {}
+        _CausticsPower("Caustics Power", Range(0, 1)) = 0.5
     }
 
     SubShader
@@ -26,14 +52,18 @@ Shader "John/FFTOcean"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "WaterCommon.hlsl"
 
-            TEXTURE2D(_HeightSpectrumRT);
-            SAMPLER(sampler_HeightSpectrumRT);
+            TEXTURE2D(_DisplaceMap);
+            SAMPLER(sampler_DisplaceMap);
 
             Varyings LitPassVertex(Attributes input)
             {
                 Varyings output;
 
-                output.positionCS = TransformObjectToHClip(input.positionOS);
+                float4 displcae = SAMPLE_TEXTURE2D_LOD(_DisplaceMap, sampler_DisplaceMap, float4(input.uv, 0.0, 0.0), 0.0);
+                input.positionOS += float4(displcae.xyz, 0);
+                output.positionWS = TransformObjectToWorld(input.positionOS);
+                output.positionCS = TransformWorldToHClip(output.positionWS);
+                output.normalWS = TransformObjectToWorldNormal(input.positionOS);
                 output.uv = input.uv;
 
                 return output;
@@ -41,8 +71,32 @@ Shader "John/FFTOcean"
 
             half4 LitPassFragment(Varyings input) : SV_Target
             {
-                half4 color = SAMPLE_TEXTURE2D(_HeightSpectrumRT, sampler_HeightSpectrumRT, input.uv);
-                return half4(color.rgb, 1);
+                float3 waveBlendNormal = input.normalWS;
+
+                float3 viewDir = normalize(_WorldSpaceCameraPos - input.positionWS);
+                
+                float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+                Light mainLight = GetMainLight(shadowCoord);
+                
+                half3 specularColor = WaterSpecular(viewDir, mainLight.direction, mainLight.color, waveBlendNormal);
+                specularColor += GetSkyBoxColor(viewDir, waveBlendNormal);
+
+                float2 screenUV = input.positionCS.xy * (_ScreenParams.zw - 1);
+                half3 refractionColor = GetRefractionColor(screenUV, waveBlendNormal);
+
+                float reflectionCoefficient = GetReflectionCoefficient(viewDir, waveBlendNormal);
+                half3 color = lerp(refractionColor, specularColor, reflectionCoefficient);
+                color += SampleSH(waveBlendNormal) * 0.1;
+
+                float depth = SampleSceneDepth(screenUV);
+                float distanceWS = GetPosDistanceWS(input.positionWS, screenUV, depth);
+
+                float depthCoefficient = pow(saturate((distanceWS * _DepthDistancePower)), 0.2);
+                half3 waterBaseColor = lerp(_ShallowWaterColor, _DeepWaterColor, depthCoefficient);
+                half3 diffuseColor = WaterDiffuse(mainLight.shadowAttenuation, mainLight.direction, mainLight.color, waveBlendNormal) * waterBaseColor;
+                color += diffuseColor;
+
+                return half4(color, 1);
             }
 
             #pragma vertex LitPassVertex

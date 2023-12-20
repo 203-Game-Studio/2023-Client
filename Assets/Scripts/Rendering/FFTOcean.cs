@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Rendering;
+﻿using UnityEngine;
 
 public class FFTOcean : MonoBehaviour
 {
@@ -13,12 +11,26 @@ public class FFTOcean : MonoBehaviour
     [SerializeField] [Header("泡沫阈值")]private float bubblesThreshold = 1;
     [SerializeField] [Header("风强")]private float windScale = 2;
     [SerializeField] [Header("风")]private Vector4 windAndSeed = new Vector4(0.1f, 0.2f, 0, 0);
+
     private int fftSize;
     private Material oceanMaterial;
     private int kernelCreateHeightSpectrum;
     private int kernelComputeGaussianRandom;
+    private int kernelCreateDisplaceSpectrum;
+    private int kernelFFTHorizontal;                 
+    private int kernelFFTHorizontalEnd;              
+    private int kernelFFTVertical;                   
+    private int kernelFFTVerticalEnd;                
+    private int kernelTextureGenerationDisplace;     
+    private int kernelTextureGenerationNormalBubbles;
     private RenderTexture gaussianRandomRT;//高斯随机数
     private RenderTexture heightSpectrumRT;//高度频谱
+    private RenderTexture displaceXSpectrumRT;//X偏移频谱
+    private RenderTexture displaceZSpectrumRT;//Z偏移频谱
+    private RenderTexture displaceRT;//偏移频谱
+    private RenderTexture outputRT;  //临时储存输出纹理
+    private RenderTexture normalRT;  //法线纹理
+    private RenderTexture bubblesRT; //泡沫纹理
 
     private void Awake()
     {
@@ -29,14 +41,27 @@ public class FFTOcean : MonoBehaviour
         fftSize = (int)Mathf.Pow(2, fftPow);
         gaussianRandomRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
         heightSpectrumRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
+        displaceXSpectrumRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
+        displaceZSpectrumRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
+        displaceRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
+        outputRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
+        normalRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
+        bubblesRT = RenderUtil.CreateRT(fftSize, RenderTextureFormat.ARGBFloat);
 
         kernelComputeGaussianRandom = oceanCS.FindKernel("ComputeGaussianRandom");
         kernelCreateHeightSpectrum = oceanCS.FindKernel("CreateHeightSpectrum");
+        kernelCreateDisplaceSpectrum = oceanCS.FindKernel("CreateDisplaceSpectrum");
+        kernelFFTHorizontal = oceanCS.FindKernel("FFTHorizontal");
+        kernelFFTHorizontalEnd = oceanCS.FindKernel("FFTHorizontalEnd");
+        kernelFFTVertical = oceanCS.FindKernel("FFTVertical");
+        kernelFFTVerticalEnd = oceanCS.FindKernel("FFTVerticalEnd");
+        kernelTextureGenerationDisplace = oceanCS.FindKernel("TextureGenerationDisplace");
+        kernelTextureGenerationNormalBubbles = oceanCS.FindKernel("TextureGenerationNormalBubbles");
 
         oceanCS.SetInt("_N", fftSize);
-        oceanCS.SetFloat("_OceanLength", 10);
+        oceanCS.SetFloat("_OceanLength", 100);
 
-        //生成高斯随机数
+        //高斯随机数
         oceanCS.SetTexture(kernelComputeGaussianRandom, "_GaussianRandomRT", gaussianRandomRT);
         oceanCS.Dispatch(kernelComputeGaussianRandom, fftSize / 8, fftSize / 8, 1);
     }
@@ -56,25 +81,100 @@ public class FFTOcean : MonoBehaviour
         oceanCS.SetFloat("_BubblesScale", bubblesScale);
         oceanCS.SetFloat("_BubblesThreshold", bubblesThreshold);
 
-        //生成高度频谱
+        //高度频谱
         oceanCS.SetTexture(kernelCreateHeightSpectrum, "_GaussianRandomRT", gaussianRandomRT);
         oceanCS.SetTexture(kernelCreateHeightSpectrum, "_HeightSpectrumRT", heightSpectrumRT);
         oceanCS.Dispatch(kernelCreateHeightSpectrum, fftSize / 8, fftSize / 8, 1);
 
-        oceanMaterial.SetTexture("_HeightSpectrumRT", heightSpectrumRT);
+        //偏移频谱
+        oceanCS.SetTexture(kernelCreateDisplaceSpectrum, "_HeightSpectrumRT", heightSpectrumRT);
+        oceanCS.SetTexture(kernelCreateDisplaceSpectrum, "_DisplaceXSpectrumRT", displaceXSpectrumRT);
+        oceanCS.SetTexture(kernelCreateDisplaceSpectrum, "_DisplaceZSpectrumRT", displaceZSpectrumRT);
+        oceanCS.Dispatch(kernelCreateDisplaceSpectrum, fftSize / 8, fftSize / 8, 1);
+
+        //横向FFT
+        for (int m = 1; m <= fftPow; m++)
+        {
+            int ns = (int)Mathf.Pow(2, m - 1);
+            oceanCS.SetInt("_Ns", ns);
+            if (m != fftPow)
+            {
+                ComputeFFT(kernelFFTHorizontal, ref heightSpectrumRT);
+                ComputeFFT(kernelFFTHorizontal, ref displaceXSpectrumRT);
+                ComputeFFT(kernelFFTHorizontal, ref displaceZSpectrumRT);
+            }
+            else
+            {
+                ComputeFFT(kernelFFTHorizontalEnd, ref heightSpectrumRT);
+                ComputeFFT(kernelFFTHorizontalEnd, ref displaceXSpectrumRT);
+                ComputeFFT(kernelFFTHorizontalEnd, ref displaceZSpectrumRT);
+            }
+        }
+        
+        //纵向FFT
+        for (int m = 1; m <= fftPow; m++)
+        {
+            int ns = (int)Mathf.Pow(2, m - 1);
+            oceanCS.SetInt("_Ns", ns);
+            if (m != fftPow)
+            {
+                ComputeFFT(kernelFFTVertical, ref heightSpectrumRT);
+                ComputeFFT(kernelFFTVertical, ref displaceXSpectrumRT);
+                ComputeFFT(kernelFFTVertical, ref displaceZSpectrumRT);
+            }
+            else
+            {
+                ComputeFFT(kernelFFTVerticalEnd, ref heightSpectrumRT);
+                ComputeFFT(kernelFFTVerticalEnd, ref displaceXSpectrumRT);
+                ComputeFFT(kernelFFTVerticalEnd, ref displaceZSpectrumRT);
+            }
+        }
+
+        //偏移
+        oceanCS.SetTexture(kernelTextureGenerationDisplace, "_HeightSpectrumRT", heightSpectrumRT);
+        oceanCS.SetTexture(kernelTextureGenerationDisplace, "_DisplaceXSpectrumRT", displaceXSpectrumRT);
+        oceanCS.SetTexture(kernelTextureGenerationDisplace, "_DisplaceZSpectrumRT", displaceZSpectrumRT);
+        oceanCS.SetTexture(kernelTextureGenerationDisplace, "_DisplaceRT", displaceRT);
+        oceanCS.Dispatch(kernelTextureGenerationDisplace, fftSize / 8, fftSize / 8, 1);
+
+        //法线和泡沫
+        oceanCS.SetTexture(kernelTextureGenerationNormalBubbles, "_DisplaceRT", displaceRT);
+        oceanCS.SetTexture(kernelTextureGenerationNormalBubbles, "_NormalRT", normalRT);
+        oceanCS.SetTexture(kernelTextureGenerationNormalBubbles, "_BubblesRT", bubblesRT);
+        oceanCS.Dispatch(kernelTextureGenerationNormalBubbles, fftSize / 8, fftSize / 8, 1);
+
+        oceanMaterial.SetTexture("_DisplaceMap", displaceRT);
     }
 
     private void OnDestroy()
     {
         gaussianRandomRT.Release();
         heightSpectrumRT.Release();
+        displaceXSpectrumRT.Release();
+        displaceZSpectrumRT.Release();
+        displaceRT.Release();
+        outputRT.Release();
+        normalRT.Release();
+        bubblesRT.Release();
+    }
+
+    //fft
+    private void ComputeFFT(int kernel, ref RenderTexture input)
+    {
+        oceanCS.SetTexture(kernel, "_InputRT", input);
+        oceanCS.SetTexture(kernel, "_OutputRT", outputRT);
+        oceanCS.Dispatch(kernel, fftSize / 8, fftSize / 8, 1);
+
+        RenderTexture rt = input;
+        input = outputRT;
+        outputRT = rt;
     }
 
     private Mesh _waterMesh;
     private Mesh waterMesh{
         get{
             if(!_waterMesh){
-                _waterMesh = RenderUtil.CreatePlaneMesh(1024, 10);
+                _waterMesh = RenderUtil.CreatePlaneMesh(1024, 100);
             }
             return _waterMesh;
         }
