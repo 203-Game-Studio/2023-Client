@@ -59,7 +59,7 @@ public class FFTOcean : MonoBehaviour
         kernelTextureGenerationNormalBubbles = oceanCS.FindKernel("TextureGenerationNormalBubbles");
 
         oceanCS.SetInt("_N", fftSize);
-        oceanCS.SetFloat("_OceanLength", 100);
+        oceanCS.SetFloat("_OceanLength", 512);
 
         //高斯随机数
         oceanCS.SetTexture(kernelComputeGaussianRandom, "_GaussianRandomRT", gaussianRandomRT);
@@ -144,6 +144,7 @@ public class FFTOcean : MonoBehaviour
         oceanCS.Dispatch(kernelTextureGenerationNormalBubbles, fftSize / 8, fftSize / 8, 1);
 
         oceanMaterial.SetTexture("_DisplaceMap", displaceRT);
+        oceanMaterial.SetTexture("_NormalMap", normalRT);
     }
 
     private void OnDestroy()
