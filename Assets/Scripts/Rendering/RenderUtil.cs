@@ -43,7 +43,7 @@ public static class RenderUtil
         descriptor.autoGenerateMips = false;
         descriptor.enableRandomWrite = true;
         RenderTexture rt = new RenderTexture(descriptor);
-        rt.filterMode = FilterMode.Point;
+        rt.filterMode = FilterMode.Bilinear;
         rt.Create();
         return rt;
     }

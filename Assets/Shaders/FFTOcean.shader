@@ -5,6 +5,9 @@ Shader "John/FFTOcean"
         //[MainTexture] _BaseMap("Albedo", 2D) = "white" {}
         _ShallowWaterColor("Shallow Water Color", Color) = (1, 1, 1, 1)
         _DeepWaterColor("Deep Water Color", Color) = (1, 1, 1, 1)
+        _SSSColor("SSS Color", Color) = (1, 1, 1, 1)
+        _SSSScale("SSS Scale", Range(0, 1)) = 0.5
+        _SSSPower("SSS Power", Range(0.1, 16)) = 1
         _DepthDistancePower("Depth Distance Power", Range(0, 1)) = 0.5
 
         _SkyBox("SkyBox", Cube) = "white"{}
@@ -14,6 +17,9 @@ Shader "John/FFTOcean"
         _Gloss("Gloss", Float) = 10.0
         _Shininess("Shininess", Float) = 200
         _FresnelPower("Fresnel Power", Range(1, 5)) = 3
+
+        _FoamTex("Foam Map", 2D) = "white" {}
+        _FoamPower("Foam Power", Range(0, 1)) = 0.5
     }
 
     SubShader
@@ -26,7 +32,7 @@ Shader "John/FFTOcean"
         {
             Name "ForwardLit"
     		Tags { "LightMode"="UniversalForward" }
-            Blend SrcAlpha OneMinusSrcAlpha
+            //Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
             Cull Back
 
@@ -42,6 +48,8 @@ Shader "John/FFTOcean"
             SAMPLER(sampler_DisplaceMap);
             TEXTURE2D(_NormalMap);
             SAMPLER(sampler_NormalMap);
+            TEXTURE2D(_BubblesMap);
+            SAMPLER(sampler_BubblesMap);
 
             Varyings LitPassVertex(Attributes input)
             {
@@ -74,15 +82,24 @@ Shader "John/FFTOcean"
 
                 //float reflectionCoefficient = GetReflectionCoefficient(viewDir, waveBlendNormal);
                 //half3 color = lerp(refractionColor, specularColor, reflectionCoefficient);
-                half3 color = specularColor + SampleSH(waveBlendNormal) * 0.1;
+                half3 color = pow(specularColor, 1) * 0.03 + SampleSH(waveBlendNormal) * 0.1;
 
-                float depth = SampleSceneDepth(screenUV);
-                float distanceWS = GetPosDistanceWS(input.positionWS, screenUV, depth);
+                float3 H = normalize(mainLight.direction + waveBlendNormal);
+                float I = pow(saturate(dot(viewDir, -H)), _SSSPower)* _SSSScale;
+                color += _SSSColor * I;
 
-                float depthCoefficient = pow(saturate((distanceWS * _DepthDistancePower)), 0.2);
-                half3 waterBaseColor = lerp(_ShallowWaterColor, _DeepWaterColor, depthCoefficient);
+                //float depth = SampleSceneDepth(screenUV);
+                //float distanceWS = GetPosDistanceWS(input.positionWS, screenUV, depth);
+                float bubblesStrength = SAMPLE_TEXTURE2D(_BubblesMap, sampler_BubblesMap, input.uv).r;
+                float2 foamUV = (input.uv + _Time.y * float2(0.005,0.005) + waveBlendNormal.xz * 0.001) * 30;
+                half3 foamColor = SAMPLE_TEXTURE2D(_FoamTex, sampler_FoamTex, foamUV);
+
+                float depthCoefficient = pow(saturate((input.positionWS.y * _DepthDistancePower)), 1);
+                half3 waterBaseColor = lerp(_DeepWaterColor, _ShallowWaterColor, depthCoefficient);
                 half3 diffuseColor = WaterDiffuse(mainLight.shadowAttenuation, mainLight.direction, mainLight.color, waveBlendNormal) * waterBaseColor;
-                color += diffuseColor;
+                color += waterBaseColor;
+
+                color = lerp(color, foamColor, bubblesStrength);
 
                 return half4(color, 1);
             }

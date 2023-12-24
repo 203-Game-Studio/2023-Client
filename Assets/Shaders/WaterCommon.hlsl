@@ -20,7 +20,10 @@ CBUFFER_START(UnityPerMaterial)
     float4  _BaseMap_ST;
     float4  _ShallowWaterColor;
     float4  _DeepWaterColor;
+    float4  _SSSColor;
     //float4  _WaveNormalMap_ST;
+    float   _SSSScale;
+    float   _SSSPower;
     float   _WaveNormalScale1;
     float   _WaveNormalScale2;
     float   _WaveXSpeed;

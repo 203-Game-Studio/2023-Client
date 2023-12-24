@@ -145,6 +145,7 @@ public class FFTOcean : MonoBehaviour
 
         oceanMaterial.SetTexture("_DisplaceMap", displaceRT);
         oceanMaterial.SetTexture("_NormalMap", normalRT);
+        oceanMaterial.SetTexture("_BubblesMap", bubblesRT);
     }
 
     private void OnDestroy()
